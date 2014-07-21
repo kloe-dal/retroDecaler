@@ -1,0 +1,60 @@
+<head>
+  <title>Rétro décaler</title>
+</head>
+
+<body>
+  <header class="jumbotron col-xs-11">
+    <h1>Rétro décaler</h1>
+    <p>Un micro-choix de petits livres rétro et décalés</p>
+  </header>
+  <section class="solutions">
+    <articles class="col-xs-3 panel panel-default">
+      <h2>Découvre</h2>
+      <a href="#" class="thumbnail" data-toggle="modal" data-target=".first-article">
+        <img src="/sample.png" alt="Yop">
+      </a>
+      <p>Un livre par jour</p>
+      {{> modal_first_article}}
+    </articles>
+    <articles class="col-xs-3 col-xs-offset-1 panel panel-default">
+      <h2>Déniche</h2>
+      <a href="#" class="thumbnail">
+        <img src="/sample.png" alt="Yop">
+      </a>
+      <p>Un livre par jour</p>
+    </articles>
+        <articles class="col-xs-3 col-xs-offset-1 panel panel-default">
+      <h2>Rencontre</h2>
+      <a href="#" class="thumbnail">
+        <img src="/sample.png" alt="Yop">
+      </a>
+      <p>Un livre par jour</p>
+    </articles>
+  </section>
+  {{> subscribe}}
+  <br>
+</body>
+
+<template name="subscribe">
+  <section class="col-xs-11">
+    <form class="col-xs-5 col-xs-offset-3 input-group">
+      <input type="text" class="form-control">
+      <span class="input-group-btn">
+        <button class="btn btn-default" type="submit">Go!</button>
+      </span>
+    </form>
+  </section>
+</template>
+
+<template name="modal_first_article">
+  <div class="modal fade first-article"  role="dialog">
+    <div class="modal-header modal-dialog modal-lg modal-content">
+      <button type="button" class="close" data-dismiss="modal">
+        <span aria-hidden="true">&times;</span>
+        <span class="sr-only">Close</span>
+      </button>
+      <h4 class="modal-title" id="myModalLabel">Rotation</h4>
+      <img src="/sample.png">
+    </div>
+  </div>
+</template>
