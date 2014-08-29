@@ -7,5 +7,5 @@ standard-app-packages
 autopublish
 insecure
 less
-less-bootstrap-3
-font-awesome-4-less
+mrt:bootstrap-3
+
