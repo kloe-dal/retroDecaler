@@ -1,10 +1,13 @@
 (function(){Template.subscribe.events({
+  
   'submit form': function (event) {
-    event.preventDefault();
     var email = $('form input').val();
+
+    event.preventDefault();
     Email.insert({email: email, created_at: new Date()});
     $('form input').val("");
   }
+  
 });
 
 })();

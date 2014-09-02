@@ -389,18 +389,18 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.modal_first_article.tpl.js?43c06e4804ef5f2ed6b891051ec04a5da4c31ea1",
-      "size": 895,
-      "hash": "43c06e4804ef5f2ed6b891051ec04a5da4c31ea1"
+      "url": "/client/template.modal_first_article.tpl.js?676f5f6e7c5d0293acf3d495830d6a0dd96a7da8",
+      "size": 899,
+      "hash": "676f5f6e7c5d0293acf3d495830d6a0dd96a7da8"
     },
     {
       "path": "app/client/template.modal_second_article.tpl.js",
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.modal_second_article.tpl.js?654f4e4581c0d9f132b471fe7f4636a819b2324d",
-      "size": 1547,
-      "hash": "654f4e4581c0d9f132b471fe7f4636a819b2324d"
+      "url": "/client/template.modal_second_article.tpl.js?677bcc94a966ca040b962e7863d3aa8b23a4adbb",
+      "size": 3341,
+      "hash": "677bcc94a966ca040b962e7863d3aa8b23a4adbb"
     },
     {
       "path": "app/client/template.modal_third_article.tpl.js",
@@ -443,20 +443,20 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/main.js?7275a4e573c19126a6f4c6f428bb52e7569ada79",
-      "size": 245,
-      "hash": "7275a4e573c19126a6f4c6f428bb52e7569ada79"
+      "url": "/client/main.js?4394506d2733adb742fa8787512d91d4d8e1e80d",
+      "size": 252,
+      "hash": "4394506d2733adb742fa8787512d91d4d8e1e80d"
     },
     {
-      "path": "9da2ef6007e12208221b7e4f0f6f3f9cf3ee28a5.css",
+      "path": "fc691f385f00500437aa8a90833bcdf2cfb6d69a.css",
       "where": "client",
       "type": "css",
       "cacheable": true,
-      "url": "/9da2ef6007e12208221b7e4f0f6f3f9cf3ee28a5.css",
-      "sourceMap": "9da2ef6007e12208221b7e4f0f6f3f9cf3ee28a5.css.map",
-      "sourceMapUrl": "/9da2ef6007e12208221b7e4f0f6f3f9cf3ee28a5.map",
-      "size": 125789,
-      "hash": "862d4a3c65d9523215e2178aa034a11944b808ce"
+      "url": "/fc691f385f00500437aa8a90833bcdf2cfb6d69a.css",
+      "sourceMap": "fc691f385f00500437aa8a90833bcdf2cfb6d69a.css.map",
+      "sourceMapUrl": "/fc691f385f00500437aa8a90833bcdf2cfb6d69a.map",
+      "size": 125831,
+      "hash": "ddd12b24ce58762bfb32ae05df65b34e90757955"
     },
     {
       "path": "packages/mrt:bootstrap-3/bootstrap-3/fonts/glyphicons-halflings-regular.eot",
@@ -520,6 +520,15 @@
       "url": "/images/cheval.png",
       "size": 231472,
       "hash": "d077895b44ba9dd94c665c48158fb2a5a2df5789"
+    },
+    {
+      "path": "app/images/classement.png",
+      "where": "client",
+      "type": "asset",
+      "cacheable": false,
+      "url": "/images/classement.png",
+      "size": 63837,
+      "hash": "3eb7d6044423a7e33fd6df62e96b6084a4fddebb"
     },
     {
       "path": "app/images/coeur.png",

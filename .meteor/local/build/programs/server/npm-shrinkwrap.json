@@ -20,6 +20,7 @@
         "source-map": {
           "version": "0.1.29",
           "from": "source-map@0.1.29",
+          "resolved": "https://registry.npmjs.org/source-map/-/source-map-0.1.29.tgz",
           "dependencies": {
             "amdefine": {
               "version": "0.1.0",
