@@ -398,9 +398,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.modal_second_article.tpl.js?677bcc94a966ca040b962e7863d3aa8b23a4adbb",
-      "size": 3341,
-      "hash": "677bcc94a966ca040b962e7863d3aa8b23a4adbb"
+      "url": "/client/template.modal_second_article.tpl.js?4fd7e104b7986ba831aa089d53408116ba496717",
+      "size": 3330,
+      "hash": "4fd7e104b7986ba831aa089d53408116ba496717"
     },
     {
       "path": "app/client/template.modal_third_article.tpl.js",
@@ -443,9 +443,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/main.js?4394506d2733adb742fa8787512d91d4d8e1e80d",
-      "size": 252,
-      "hash": "4394506d2733adb742fa8787512d91d4d8e1e80d"
+      "url": "/client/main.js?d1352e71061da5e9e980a0f6af32ab3d90d38187",
+      "size": 258,
+      "hash": "d1352e71061da5e9e980a0f6af32ab3d90d38187"
     },
     {
       "path": "fc691f385f00500437aa8a90833bcdf2cfb6d69a.css",
