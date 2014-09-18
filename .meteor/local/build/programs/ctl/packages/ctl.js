@@ -3,9 +3,10 @@
 /* Imports */
 var Meteor = Package.meteor.Meteor;
 var _ = Package.underscore._;
-var DDP = Package.livedata.DDP;
-var DDPServer = Package.livedata.DDPServer;
-var MongoInternals = Package['mongo-livedata'].MongoInternals;
+var DDP = Package.ddp.DDP;
+var DDPServer = Package.ddp.DDPServer;
+var MongoInternals = Package.mongo.MongoInternals;
+var Mongo = Package.mongo.Mongo;
 var Ctl = Package['ctl-helper'].Ctl;
 var AppConfig = Package['application-configuration'].AppConfig;
 var Follower = Package['follower-livedata'].Follower;

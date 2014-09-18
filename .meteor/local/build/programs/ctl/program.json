@@ -33,9 +33,9 @@
       "path": "packages/random.js"
     },
     {
-      "sourceMap": "packages/deps.js.map",
+      "sourceMap": "packages/tracker.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/deps.js"
+      "path": "packages/tracker.js"
     },
     {
       "node_modules": "npm/logging/node_modules",
@@ -74,10 +74,10 @@
       "path": "packages/minimongo.js"
     },
     {
-      "node_modules": "npm/livedata/node_modules",
-      "sourceMap": "packages/livedata.js.map",
+      "node_modules": "npm/ddp/node_modules",
+      "sourceMap": "packages/ddp.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/livedata.js"
+      "path": "packages/ddp.js"
     },
     {
       "sourceMap": "packages/follower-livedata.js.map",
@@ -95,10 +95,10 @@
       "path": "packages/binary-heap.js"
     },
     {
-      "node_modules": "npm/mongo-livedata/node_modules",
-      "sourceMap": "packages/mongo-livedata.js.map",
+      "node_modules": "npm/mongo/node_modules",
+      "sourceMap": "packages/mongo.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/mongo-livedata.js"
+      "path": "packages/mongo.js"
     },
     {
       "node_modules": "npm/ctl-helper/node_modules",

@@ -2,7 +2,8 @@
 
 /* Imports */
 var Meteor = Package.meteor.Meteor;
-var Deps = Package.deps.Deps;
+var Tracker = Package.tracker.Tracker;
+var Deps = Package.tracker.Deps;
 var LocalCollection = Package.minimongo.LocalCollection;
 var Minimongo = Package.minimongo.Minimongo;
 var _ = Package.underscore._;
@@ -97,10 +98,10 @@ ObserveSequence = {                                                             
     // general 'key' argument which could be a function, a dotted                // 76
     // field name, or the special @index value.                                  // 77
     var lastSeqArray = []; // elements are objects of form {_id, item}           // 78
-    var computation = Deps.autorun(function () {                                 // 79
+    var computation = Tracker.autorun(function () {                              // 79
       var seq = sequenceFunc();                                                  // 80
                                                                                  // 81
-      Deps.nonreactive(function () {                                             // 82
+      Tracker.nonreactive(function () {                                          // 82
         var seqArray; // same structure as `lastSeqArray` above.                 // 83
                                                                                  // 84
         if (activeObserveHandle) {                                               // 85

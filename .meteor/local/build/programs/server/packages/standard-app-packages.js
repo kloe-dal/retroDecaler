@@ -2,7 +2,6 @@
 
 /* Imports */
 var Meteor = Package.meteor.Meteor;
-var Autoupdate = Package.autoupdate.Autoupdate;
 
 
 

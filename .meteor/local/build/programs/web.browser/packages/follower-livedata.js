@@ -21,7 +21,7 @@
 var Meteor = Package.meteor.Meteor;
 var Log = Package.logging.Log;
 var _ = Package.underscore._;
-var DDP = Package.livedata.DDP;
+var DDP = Package.ddp.DDP;
 var EJSON = Package.ejson.EJSON;
 
 /* Package-scope variables */
@@ -37,4 +37,4 @@ Package['follower-livedata'] = {
 
 })();
 
-//# sourceMappingURL=39b05f02878030ae806a16a173661b7df1e92eb6.map
+//# sourceMappingURL=74156c6baa89da861fc4ddb58ef158eac71e58e0.map

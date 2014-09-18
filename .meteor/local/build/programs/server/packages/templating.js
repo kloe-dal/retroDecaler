@@ -2,10 +2,10 @@
 
 /* Imports */
 var Meteor = Package.meteor.Meteor;
-var UI = Package.ui.UI;
-var Handlebars = Package.ui.Handlebars;
-var HTML = Package.htmljs.HTML;
 var Blaze = Package.blaze.Blaze;
+var UI = Package.blaze.UI;
+var Handlebars = Package.blaze.Handlebars;
+var HTML = Package.htmljs.HTML;
 
 
 

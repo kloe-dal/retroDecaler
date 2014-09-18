@@ -4,8 +4,8 @@
 var Meteor = Package.meteor.Meteor;
 var Log = Package.logging.Log;
 var _ = Package.underscore._;
-var DDP = Package.livedata.DDP;
-var DDPServer = Package.livedata.DDPServer;
+var DDP = Package.ddp.DDP;
+var DDPServer = Package.ddp.DDPServer;
 var EJSON = Package.ejson.EJSON;
 
 /* Package-scope variables */

@@ -4,9 +4,10 @@
 var Meteor = Package.meteor.Meteor;
 var Log = Package.logging.Log;
 var _ = Package.underscore._;
-var DDP = Package.livedata.DDP;
-var DDPServer = Package.livedata.DDPServer;
-var MongoInternals = Package['mongo-livedata'].MongoInternals;
+var DDP = Package.ddp.DDP;
+var DDPServer = Package.ddp.DDPServer;
+var MongoInternals = Package.mongo.MongoInternals;
+var Mongo = Package.mongo.Mongo;
 var Follower = Package['follower-livedata'].Follower;
 var AppConfig = Package['application-configuration'].AppConfig;
 
@@ -210,7 +211,7 @@ _.extend(Ctl, {                                                                 
   },                                                                                    // 187
                                                                                         // 188
   jobsCollection: _.once(function () {                                                  // 189
-    return new Meteor.Collection("jobs", {manager: Ctl.findGalaxy()});                  // 190
+    return new Mongo.Collection("jobs", {manager: Ctl.findGalaxy()});                   // 190
   }),                                                                                   // 191
                                                                                         // 192
   // use _.memoize so that this is called only once per app.                            // 193

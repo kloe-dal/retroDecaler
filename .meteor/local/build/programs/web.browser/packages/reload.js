@@ -79,125 +79,151 @@ var TIMEOUT = 30000;                                                            
 var old_data = {};                                                                           // 43
 // read in old data at startup.                                                              // 44
 var old_json;                                                                                // 45
-// On Firefox with dom.storage.enabled set to false, sessionStorage is null,                 // 46
-// so we have to both check to see if it is defined and not null.                            // 47
-if (typeof sessionStorage !== "undefined" && sessionStorage) {                               // 48
-  old_json = sessionStorage.getItem(KEY_NAME);                                               // 49
-  sessionStorage.removeItem(KEY_NAME);                                                       // 50
-} else {                                                                                     // 51
-  // Unsupported browser (IE 6,7). No session resumption.                                    // 52
-  // Meteor._debug("XXX UNSUPPORTED BROWSER");                                               // 53
-}                                                                                            // 54
-                                                                                             // 55
-if (!old_json) old_json = '{}';                                                              // 56
-var old_parsed = {};                                                                         // 57
-try {                                                                                        // 58
-  old_parsed = JSON.parse(old_json);                                                         // 59
-  if (typeof old_parsed !== "object") {                                                      // 60
-    Meteor._debug("Got bad data on reload. Ignoring.");                                      // 61
-    old_parsed = {};                                                                         // 62
-  }                                                                                          // 63
-} catch (err) {                                                                              // 64
-  Meteor._debug("Got invalid JSON on reload. Ignoring.");                                    // 65
-}                                                                                            // 66
-                                                                                             // 67
-if (old_parsed.reload && typeof old_parsed.data === "object" &&                              // 68
-    old_parsed.time + TIMEOUT > (new Date()).getTime()) {                                    // 69
-  // Meteor._debug("Restoring reload data.");                                                // 70
-  old_data = old_parsed.data;                                                                // 71
-}                                                                                            // 72
-                                                                                             // 73
-                                                                                             // 74
-var providers = [];                                                                          // 75
-                                                                                             // 76
-////////// External API //////////                                                           // 77
-                                                                                             // 78
-Reload = {};                                                                                 // 79
-                                                                                             // 80
-// Packages that support migration should register themselves by                             // 81
-// calling this function. When it's time to migrate, callback will                           // 82
-// be called with one argument, the "retry function." If the package                         // 83
-// is ready to migrate, it should return [true, data], where data is                         // 84
-// its migration data, an arbitrary JSON value (or [true] if it has                          // 85
-// no migration data this time). If the package needs more time                              // 86
-// before it is ready to migrate, it should return false. Then, once                         // 87
-// it is ready to migrating again, it should call the retry                                  // 88
-// function. The retry function will return immediately, but will                            // 89
-// schedule the migration to be retried, meaning that every package                          // 90
-// will be polled once again for its migration data. If they are all                         // 91
-// ready this time, then the migration will happen. name must be set if there                // 92
-// is migration data.                                                                        // 93
-//                                                                                           // 94
-Reload._onMigrate = function (name, callback) {                                              // 95
-  if (!callback) {                                                                           // 96
-    // name not provided, so first arg is callback.                                          // 97
-    callback = name;                                                                         // 98
-    name = undefined;                                                                        // 99
-  }                                                                                          // 100
-  providers.push({name: name, callback: callback});                                          // 101
-};                                                                                           // 102
-                                                                                             // 103
-// Called by packages when they start up.                                                    // 104
-// Returns the object that was saved, or undefined if none saved.                            // 105
-//                                                                                           // 106
-Reload._migrationData = function (name) {                                                    // 107
-  return old_data[name];                                                                     // 108
-};                                                                                           // 109
-                                                                                             // 110
-// Migrating reload: reload this page (presumably to pick up a new                           // 111
-// version of the code or assets), but save the program state and                            // 112
-// migrate it over. This function returns immediately. The reload                            // 113
-// will happen at some point in the future once all of the packages                          // 114
-// are ready to migrate.                                                                     // 115
-//                                                                                           // 116
-var reloading = false;                                                                       // 117
-Reload._reload = function () {                                                               // 118
-  if (reloading)                                                                             // 119
-    return;                                                                                  // 120
-  reloading = true;                                                                          // 121
-                                                                                             // 122
-  var tryReload = function () { _.defer(function () {                                        // 123
-    // Make sure each package is ready to go, and collect their                              // 124
-    // migration data                                                                        // 125
-    var migrationData = {};                                                                  // 126
-    var remaining = _.clone(providers);                                                      // 127
-    while (remaining.length) {                                                               // 128
-      var p = remaining.shift();                                                             // 129
-      var status = p.callback(tryReload);                                                    // 130
-      if (!status[0])                                                                        // 131
-        return; // not ready yet..                                                           // 132
-      if (status.length > 1 && p.name)                                                       // 133
-        migrationData[p.name] = status[1];                                                   // 134
-    };                                                                                       // 135
+                                                                                             // 46
+// This logic for sessionStorage detection is based on browserstate/history.js               // 47
+var safeSessionStorage = null;                                                               // 48
+try {                                                                                        // 49
+  // This throws a SecurityError on Chrome if cookies & localStorage are                     // 50
+  // explicitly disabled                                                                     // 51
+  //                                                                                         // 52
+  // On Firefox with dom.storage.enabled set to false, sessionStorage is null                // 53
+  //                                                                                         // 54
+  // We can't even do (typeof sessionStorage) on Chrome, it throws.  So we rely              // 55
+  // on the throw if sessionStorage == null; the alternative is browser                      // 56
+  // detection, but this seems better.                                                       // 57
+  safeSessionStorage = window.sessionStorage;                                                // 58
+                                                                                             // 59
+  // Check we can actually use it                                                            // 60
+  if (safeSessionStorage) {                                                                  // 61
+    safeSessionStorage.setItem('__dummy__', '1');                                            // 62
+    safeSessionStorage.removeItem('__dummy__');                                              // 63
+  } else {                                                                                   // 64
+    // Be consistently null, for safety                                                      // 65
+    safeSessionStorage = null;                                                               // 66
+  }                                                                                          // 67
+} catch(e) {                                                                                 // 68
+  // Expected on chrome with strict security, or if sessionStorage not supported             // 69
+  safeSessionStorage = null;                                                                 // 70
+}                                                                                            // 71
+                                                                                             // 72
+if (safeSessionStorage) {                                                                    // 73
+  old_json = safeSessionStorage.getItem(KEY_NAME);                                           // 74
+  safeSessionStorage.removeItem(KEY_NAME);                                                   // 75
+} else {                                                                                     // 76
+  // Unsupported browser (IE 6,7) or locked down security settings.                          // 77
+  // No session resumption.                                                                  // 78
+  // Meteor._debug("XXX UNSUPPORTED BROWSER/SETTINGS");                                      // 79
+}                                                                                            // 80
+                                                                                             // 81
+if (!old_json) old_json = '{}';                                                              // 82
+var old_parsed = {};                                                                         // 83
+try {                                                                                        // 84
+  old_parsed = JSON.parse(old_json);                                                         // 85
+  if (typeof old_parsed !== "object") {                                                      // 86
+    Meteor._debug("Got bad data on reload. Ignoring.");                                      // 87
+    old_parsed = {};                                                                         // 88
+  }                                                                                          // 89
+} catch (err) {                                                                              // 90
+  Meteor._debug("Got invalid JSON on reload. Ignoring.");                                    // 91
+}                                                                                            // 92
+                                                                                             // 93
+if (old_parsed.reload && typeof old_parsed.data === "object" &&                              // 94
+    old_parsed.time + TIMEOUT > (new Date()).getTime()) {                                    // 95
+  // Meteor._debug("Restoring reload data.");                                                // 96
+  old_data = old_parsed.data;                                                                // 97
+}                                                                                            // 98
+                                                                                             // 99
+                                                                                             // 100
+var providers = [];                                                                          // 101
+                                                                                             // 102
+////////// External API //////////                                                           // 103
+                                                                                             // 104
+Reload = {};                                                                                 // 105
+                                                                                             // 106
+// Packages that support migration should register themselves by                             // 107
+// calling this function. When it's time to migrate, callback will                           // 108
+// be called with one argument, the "retry function." If the package                         // 109
+// is ready to migrate, it should return [true, data], where data is                         // 110
+// its migration data, an arbitrary JSON value (or [true] if it has                          // 111
+// no migration data this time). If the package needs more time                              // 112
+// before it is ready to migrate, it should return false. Then, once                         // 113
+// it is ready to migrating again, it should call the retry                                  // 114
+// function. The retry function will return immediately, but will                            // 115
+// schedule the migration to be retried, meaning that every package                          // 116
+// will be polled once again for its migration data. If they are all                         // 117
+// ready this time, then the migration will happen. name must be set if there                // 118
+// is migration data.                                                                        // 119
+//                                                                                           // 120
+Reload._onMigrate = function (name, callback) {                                              // 121
+  if (!callback) {                                                                           // 122
+    // name not provided, so first arg is callback.                                          // 123
+    callback = name;                                                                         // 124
+    name = undefined;                                                                        // 125
+  }                                                                                          // 126
+  providers.push({name: name, callback: callback});                                          // 127
+};                                                                                           // 128
+                                                                                             // 129
+// Called by packages when they start up.                                                    // 130
+// Returns the object that was saved, or undefined if none saved.                            // 131
+//                                                                                           // 132
+Reload._migrationData = function (name) {                                                    // 133
+  return old_data[name];                                                                     // 134
+};                                                                                           // 135
                                                                                              // 136
-    try {                                                                                    // 137
-      // Persist the migration data                                                          // 138
-      var json = JSON.stringify({                                                            // 139
-        time: (new Date()).getTime(), data: migrationData, reload: true                      // 140
-      });                                                                                    // 141
-    } catch (err) {                                                                          // 142
-      Meteor._debug("Couldn't serialize data for migration", migrationData);                 // 143
-      throw err;                                                                             // 144
-    }                                                                                        // 145
-                                                                                             // 146
-    if (typeof sessionStorage !== "undefined" && sessionStorage) {                           // 147
-      try {                                                                                  // 148
-        sessionStorage.setItem(KEY_NAME, json);                                              // 149
-      } catch (err) {                                                                        // 150
-        // happens in safari with private browsing                                           // 151
-        Meteor._debug("Couldn't save data for migration to sessionStorage", err);            // 152
-      }                                                                                      // 153
-    } else {                                                                                 // 154
-      Meteor._debug("Browser does not support sessionStorage. Not saving migration state."); // 155
-    }                                                                                        // 156
-                                                                                             // 157
-    // Tell the browser to shut down this VM and make a new one                              // 158
-    window.location.reload();                                                                // 159
-  }); };                                                                                     // 160
-                                                                                             // 161
-  tryReload();                                                                               // 162
-};                                                                                           // 163
-                                                                                             // 164
+// Migrating reload: reload this page (presumably to pick up a new                           // 137
+// version of the code or assets), but save the program state and                            // 138
+// migrate it over. This function returns immediately. The reload                            // 139
+// will happen at some point in the future once all of the packages                          // 140
+// are ready to migrate.                                                                     // 141
+//                                                                                           // 142
+var reloading = false;                                                                       // 143
+Reload._reload = function () {                                                               // 144
+  if (reloading)                                                                             // 145
+    return;                                                                                  // 146
+  reloading = true;                                                                          // 147
+                                                                                             // 148
+  var tryReload = function () { _.defer(function () {                                        // 149
+    // Make sure each package is ready to go, and collect their                              // 150
+    // migration data                                                                        // 151
+    var migrationData = {};                                                                  // 152
+    var remaining = _.clone(providers);                                                      // 153
+    while (remaining.length) {                                                               // 154
+      var p = remaining.shift();                                                             // 155
+      var status = p.callback(tryReload);                                                    // 156
+      if (!status[0])                                                                        // 157
+        return; // not ready yet..                                                           // 158
+      if (status.length > 1 && p.name)                                                       // 159
+        migrationData[p.name] = status[1];                                                   // 160
+    };                                                                                       // 161
+                                                                                             // 162
+    try {                                                                                    // 163
+      // Persist the migration data                                                          // 164
+      var json = JSON.stringify({                                                            // 165
+        time: (new Date()).getTime(), data: migrationData, reload: true                      // 166
+      });                                                                                    // 167
+    } catch (err) {                                                                          // 168
+      Meteor._debug("Couldn't serialize data for migration", migrationData);                 // 169
+      throw err;                                                                             // 170
+    }                                                                                        // 171
+                                                                                             // 172
+    if (safeSessionStorage) {                                                                // 173
+      try {                                                                                  // 174
+        safeSessionStorage.setItem(KEY_NAME, json);                                          // 175
+      } catch (err) {                                                                        // 176
+        // We should have already checked this, but just log - don't throw                   // 177
+        Meteor._debug("Couldn't save data for migration to sessionStorage", err);            // 178
+      }                                                                                      // 179
+    } else {                                                                                 // 180
+      Meteor._debug("Browser does not support sessionStorage. Not saving migration state."); // 181
+    }                                                                                        // 182
+                                                                                             // 183
+    // Tell the browser to shut down this VM and make a new one                              // 184
+    window.location.reload();                                                                // 185
+  }); };                                                                                     // 186
+                                                                                             // 187
+  tryReload();                                                                               // 188
+};                                                                                           // 189
+                                                                                             // 190
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 }).call(this);
@@ -237,4 +263,4 @@ Package.reload = {
 
 })();
 
-//# sourceMappingURL=ad0e94b5b63bbe79ab30e9dad4e6eb91694f5875.map
+//# sourceMappingURL=280a29a70c3ef619a16274bbf70dd5e7029dd102.map

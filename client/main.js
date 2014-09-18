@@ -10,4 +10,4 @@ Template.subscribe.events({
   
 });
 
-    
+Meteor.subscribe('books');

@@ -10,6 +10,6 @@
   
 });
 
-    
+Meteor.subscribe('books');
 
 })();

@@ -3,10 +3,10 @@
 /* Imports */
 var Meteor = Package.meteor.Meteor;
 var HTML = Package.htmljs.HTML;
-var UI = Package.ui.UI;
-var Handlebars = Package.ui.Handlebars;
-var ObserveSequence = Package['observe-sequence'].ObserveSequence;
 var Blaze = Package.blaze.Blaze;
+var UI = Package.blaze.UI;
+var Handlebars = Package.blaze.Handlebars;
+var ObserveSequence = Package['observe-sequence'].ObserveSequence;
 
 /* Package-scope variables */
 var Spacebars;
@@ -31,7 +31,7 @@ Spacebars.include = function (templateOrFunction, contentFunc, elseFunc) {      
     var template = templateOrFunction;                                           // 10
     if (! Blaze.isTemplate(template))                                            // 11
       throw new Error("Expected template or null, found: " + template);          // 12
-    return Blaze.runTemplate(templateOrFunction, contentFunc, elseFunc);         // 13
+    return templateOrFunction.constructView(contentFunc, elseFunc);              // 13
   }                                                                              // 14
                                                                                  // 15
   var templateVar = Blaze.ReactiveVar(null, tripleEquals);                       // 16
@@ -40,13 +40,13 @@ Spacebars.include = function (templateOrFunction, contentFunc, elseFunc) {      
     if (template === null)                                                       // 19
       return null;                                                               // 20
                                                                                  // 21
-    if (! Template.__isTemplate__(template))                                     // 22
+    if (! Blaze.isTemplate(template))                                            // 22
       throw new Error("Expected template or null, found: " + template);          // 23
                                                                                  // 24
-    return Blaze.runTemplate(template, contentFunc, elseFunc);                   // 25
+    return template.constructView(contentFunc, elseFunc);                        // 25
   });                                                                            // 26
   view.__templateVar = templateVar;                                              // 27
-  view.onCreated(function () {                                                   // 28
+  view.onViewCreated(function () {                                               // 28
     this.autorun(function () {                                                   // 29
       templateVar.set(templateOrFunction());                                     // 30
     });                                                                          // 31
@@ -225,106 +225,78 @@ Spacebars.dot = function (value, id1/*, id2, ...*/) {                           
   };                                                                             // 204
 };                                                                               // 205
                                                                                  // 206
-Spacebars.TemplateWith = function (argFunc, contentBlock) {                      // 207
-  var w;                                                                         // 208
-                                                                                 // 209
-  // This is a little messy.  When we compile `{{> UI.contentBlock}}`, we        // 210
-  // wrap it in Blaze.InOuterTemplateScope in order to skip the intermediate     // 211
-  // parent Views in the current template.  However, when there's an argument    // 212
-  // (`{{> UI.contentBlock arg}}`), the argument needs to be evaluated           // 213
-  // in the original scope.  There's no good order to nest                       // 214
-  // Blaze.InOuterTemplateScope and Spacebars.TemplateWith to achieve this,      // 215
-  // so we wrap argFunc to run it in the "original parentView" of the            // 216
-  // Blaze.InOuterTemplateScope.                                                 // 217
-  //                                                                             // 218
-  // To make this better, reconsider InOuterTemplateScope as a primitive.        // 219
-  // Longer term, evaluate expressions in the proper lexical scope.              // 220
-  var wrappedArgFunc = function () {                                             // 221
-    var viewToEvaluateArg = null;                                                // 222
-    if (w.parentView && w.parentView.kind === 'InOuterTemplateScope') {          // 223
-      viewToEvaluateArg = w.parentView.originalParentView;                       // 224
-    }                                                                            // 225
-    if (viewToEvaluateArg) {                                                     // 226
-      return Blaze.withCurrentView(viewToEvaluateArg, argFunc);                  // 227
-    } else {                                                                     // 228
-      return argFunc();                                                          // 229
-    }                                                                            // 230
-  };                                                                             // 231
-                                                                                 // 232
-  w = Blaze.With(wrappedArgFunc, contentBlock);                                  // 233
-  w.__isTemplateWith = true;                                                     // 234
-  return w;                                                                      // 235
-};                                                                               // 236
-                                                                                 // 237
-// Spacebars.With implements the conditional logic of rendering                  // 238
-// the `{{else}}` block if the argument is falsy.  It combines                   // 239
-// a Blaze.If with a Blaze.With (the latter only in the truthy                   // 240
-// case, since the else block is evaluated without entering                      // 241
-// a new data context).                                                          // 242
-Spacebars.With = function (argFunc, contentFunc, elseFunc) {                     // 243
-  var argVar = new Blaze.ReactiveVar;                                            // 244
-  var view = Blaze.View('Spacebars_with', function () {                          // 245
-    return Blaze.If(function () { return argVar.get(); },                        // 246
-                    function () { return Blaze.With(function () {                // 247
-                      return argVar.get(); }, contentFunc); },                   // 248
-                    elseFunc);                                                   // 249
-  });                                                                            // 250
-  view.onCreated(function () {                                                   // 251
-    this.autorun(function () {                                                   // 252
-      argVar.set(argFunc());                                                     // 253
-                                                                                 // 254
-      // This is a hack so that autoruns inside the body                         // 255
-      // of the #with get stopped sooner.  It reaches inside                     // 256
-      // our ReactiveVar to access its dep.                                      // 257
-                                                                                 // 258
-      Deps.onInvalidate(function () {                                            // 259
-        argVar.dep.changed();                                                    // 260
-      });                                                                        // 261
-                                                                                 // 262
-      // Take the case of `{{#with A}}{{B}}{{/with}}`.  The goal                 // 263
-      // is to not re-render `B` if `A` changes to become falsy                  // 264
-      // and `B` is simultaneously invalidated.                                  // 265
-      //                                                                         // 266
-      // A series of autoruns are involved:                                      // 267
-      //                                                                         // 268
-      // 1. This autorun (argument to Spacebars.With)                            // 269
-      // 2. Argument to Blaze.If                                                 // 270
-      // 3. Blaze.If view re-render                                              // 271
-      // 4. Argument to Blaze.With                                               // 272
-      // 5. The template tag `{{B}}`                                             // 273
-      //                                                                         // 274
-      // When (3) is invalidated, it immediately stops (4) and (5)               // 275
-      // because of a Deps.onInvalidate built into materializeView.              // 276
-      // (When a View's render method is invalidated, it immediately             // 277
-      // tears down all the subviews, via a Deps.onInvalidate much               // 278
-      // like this one.                                                          // 279
-      //                                                                         // 280
-      // Suppose `A` changes to become falsy, and `B` changes at the             // 281
-      // same time (i.e. without an intervening flush).                          // 282
-      // Without the code above, this happens:                                   // 283
-      //                                                                         // 284
-      // - (1) and (5) are invalidated.                                          // 285
-      // - (1) runs, invalidating (2) and (4).                                   // 286
-      // - (5) runs.                                                             // 287
-      // - (2) runs, invalidating (3), stopping (4) and (5).                     // 288
-      //                                                                         // 289
-      // With the code above:                                                    // 290
-      //                                                                         // 291
-      // - (1) and (5) are invalidated, invalidating (2) and (4).                // 292
-      // - (1) runs.                                                             // 293
-      // - (2) runs, invalidating (3), stopping (4) and (5).                     // 294
-      //                                                                         // 295
-      // If the re-run of (5) is originally enqueued before (1), all             // 296
-      // bets are off, but typically that doesn't seem to be the                 // 297
-      // case.  Anyway, doing this is always better than not doing it,           // 298
-      // because it might save a bunch of DOM from being updated                 // 299
-      // needlessly.                                                             // 300
-    });                                                                          // 301
-  });                                                                            // 302
-                                                                                 // 303
-  return view;                                                                   // 304
-};                                                                               // 305
-                                                                                 // 306
+// Spacebars.With implements the conditional logic of rendering                  // 207
+// the `{{else}}` block if the argument is falsy.  It combines                   // 208
+// a Blaze.If with a Blaze.With (the latter only in the truthy                   // 209
+// case, since the else block is evaluated without entering                      // 210
+// a new data context).                                                          // 211
+Spacebars.With = function (argFunc, contentFunc, elseFunc) {                     // 212
+  var argVar = new Blaze.ReactiveVar;                                            // 213
+  var view = Blaze.View('Spacebars_with', function () {                          // 214
+    return Blaze.If(function () { return argVar.get(); },                        // 215
+                    function () { return Blaze.With(function () {                // 216
+                      return argVar.get(); }, contentFunc); },                   // 217
+                    elseFunc);                                                   // 218
+  });                                                                            // 219
+  view.onViewCreated(function () {                                               // 220
+    this.autorun(function () {                                                   // 221
+      argVar.set(argFunc());                                                     // 222
+                                                                                 // 223
+      // This is a hack so that autoruns inside the body                         // 224
+      // of the #with get stopped sooner.  It reaches inside                     // 225
+      // our ReactiveVar to access its dep.                                      // 226
+                                                                                 // 227
+      Tracker.onInvalidate(function () {                                         // 228
+        argVar.dep.changed();                                                    // 229
+      });                                                                        // 230
+                                                                                 // 231
+      // Take the case of `{{#with A}}{{B}}{{/with}}`.  The goal                 // 232
+      // is to not re-render `B` if `A` changes to become falsy                  // 233
+      // and `B` is simultaneously invalidated.                                  // 234
+      //                                                                         // 235
+      // A series of autoruns are involved:                                      // 236
+      //                                                                         // 237
+      // 1. This autorun (argument to Spacebars.With)                            // 238
+      // 2. Argument to Blaze.If                                                 // 239
+      // 3. Blaze.If view re-render                                              // 240
+      // 4. Argument to Blaze.With                                               // 241
+      // 5. The template tag `{{B}}`                                             // 242
+      //                                                                         // 243
+      // When (3) is invalidated, it immediately stops (4) and (5)               // 244
+      // because of a Tracker.onInvalidate built into materializeView.           // 245
+      // (When a View's render method is invalidated, it immediately             // 246
+      // tears down all the subviews, via a Tracker.onInvalidate much            // 247
+      // like this one.                                                          // 248
+      //                                                                         // 249
+      // Suppose `A` changes to become falsy, and `B` changes at the             // 250
+      // same time (i.e. without an intervening flush).                          // 251
+      // Without the code above, this happens:                                   // 252
+      //                                                                         // 253
+      // - (1) and (5) are invalidated.                                          // 254
+      // - (1) runs, invalidating (2) and (4).                                   // 255
+      // - (5) runs.                                                             // 256
+      // - (2) runs, invalidating (3), stopping (4) and (5).                     // 257
+      //                                                                         // 258
+      // With the code above:                                                    // 259
+      //                                                                         // 260
+      // - (1) and (5) are invalidated, invalidating (2) and (4).                // 261
+      // - (1) runs.                                                             // 262
+      // - (2) runs, invalidating (3), stopping (4) and (5).                     // 263
+      //                                                                         // 264
+      // If the re-run of (5) is originally enqueued before (1), all             // 265
+      // bets are off, but typically that doesn't seem to be the                 // 266
+      // case.  Anyway, doing this is always better than not doing it,           // 267
+      // because it might save a bunch of DOM from being updated                 // 268
+      // needlessly.                                                             // 269
+    });                                                                          // 270
+  });                                                                            // 271
+                                                                                 // 272
+  return view;                                                                   // 273
+};                                                                               // 274
+                                                                                 // 275
+// XXX COMPAT WITH 0.9.0                                                         // 276
+Spacebars.TemplateWith = Blaze._TemplateWith;                                    // 277
+                                                                                 // 278
 ///////////////////////////////////////////////////////////////////////////////////
 
 }).call(this);

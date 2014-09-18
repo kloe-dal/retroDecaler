@@ -24,7 +24,8 @@ var JSON = Package.json.JSON;
 var EJSON = Package.ejson.EJSON;
 var IdMap = Package['id-map'].IdMap;
 var OrderedDict = Package['ordered-dict'].OrderedDict;
-var Deps = Package.deps.Deps;
+var Tracker = Package.tracker.Tracker;
+var Deps = Package.tracker.Deps;
 var Random = Package.random.Random;
 var GeoJSON = Package['geojson-utils'].GeoJSON;
 
@@ -105,7 +106,7 @@ MinimongoError = function (message) {                                           
 //   (in the first form you're beholden to key enumeration order in                                   // 64
 //   your javascript VM)                                                                              // 65
 //                                                                                                    // 66
-// reactive: if given, and false, don't register with Deps (default                                   // 67
+// reactive: if given, and false, don't register with Tracker (default                                // 67
 // is true)                                                                                           // 68
 //                                                                                                    // 69
 // XXX possibly should support retrieving a subset of fields? and                                     // 70
@@ -126,982 +127,1030 @@ LocalCollection.prototype.find = function (selector, options) {                 
 };                                                                                                    // 85
                                                                                                       // 86
 // don't call this ctor directly.  use LocalCollection.find().                                        // 87
-LocalCollection.Cursor = function (collection, selector, options) {                                   // 88
-  var self = this;                                                                                    // 89
-  if (!options) options = {};                                                                         // 90
-                                                                                                      // 91
-  self.collection = collection;                                                                       // 92
-  self.sorter = null;                                                                                 // 93
-                                                                                                      // 94
-  if (LocalCollection._selectorIsId(selector)) {                                                      // 95
-    // stash for fast path                                                                            // 96
-    self._selectorId = selector;                                                                      // 97
-    self.matcher = new Minimongo.Matcher(selector, self);                                             // 98
-  } else {                                                                                            // 99
-    self._selectorId = undefined;                                                                     // 100
-    self.matcher = new Minimongo.Matcher(selector, self);                                             // 101
-    if (self.matcher.hasGeoQuery() || options.sort) {                                                 // 102
-      self.sorter = new Minimongo.Sorter(options.sort || [],                                          // 103
-                                         { matcher: self.matcher });                                  // 104
-    }                                                                                                 // 105
-  }                                                                                                   // 106
-  self.skip = options.skip;                                                                           // 107
-  self.limit = options.limit;                                                                         // 108
-  self.fields = options.fields;                                                                       // 109
-                                                                                                      // 110
-  if (self.fields)                                                                                    // 111
-    self.projectionFn = LocalCollection._compileProjection(self.fields);                              // 112
-                                                                                                      // 113
-  self._transform = LocalCollection.wrapTransform(options.transform);                                 // 114
-                                                                                                      // 115
-  // by default, queries register w/ Deps when it is available.                                       // 116
-  if (typeof Deps !== "undefined")                                                                    // 117
-    self.reactive = (options.reactive === undefined) ? true : options.reactive;                       // 118
-};                                                                                                    // 119
-                                                                                                      // 120
-// Since we don't actually have a "nextObject" interface, there's really no                           // 121
-// reason to have a "rewind" interface.  All it did was make multiple calls                           // 122
-// to fetch/map/forEach return nothing the second time.                                               // 123
-// XXX COMPAT WITH 0.8.1                                                                              // 124
-LocalCollection.Cursor.prototype.rewind = function () {                                               // 125
-};                                                                                                    // 126
-                                                                                                      // 127
-LocalCollection.prototype.findOne = function (selector, options) {                                    // 128
-  if (arguments.length === 0)                                                                         // 129
-    selector = {};                                                                                    // 130
-                                                                                                      // 131
-  // NOTE: by setting limit 1 here, we end up using very inefficient                                  // 132
-  // code that recomputes the whole query on each update. The upside is                               // 133
-  // that when you reactively depend on a findOne you only get                                        // 134
-  // invalidated when the found object changes, not any object in the                                 // 135
-  // collection. Most findOne will be by id, which has a fast path, so                                // 136
-  // this might not be a big deal. In most cases, invalidation causes                                 // 137
-  // the called to re-query anyway, so this should be a net performance                               // 138
-  // improvement.                                                                                     // 139
-  options = options || {};                                                                            // 140
-  options.limit = 1;                                                                                  // 141
-                                                                                                      // 142
-  return this.find(selector, options).fetch()[0];                                                     // 143
-};                                                                                                    // 144
-                                                                                                      // 145
-LocalCollection.Cursor.prototype.forEach = function (callback, thisArg) {                             // 146
-  var self = this;                                                                                    // 147
-                                                                                                      // 148
-  var objects = self._getRawObjects({ordered: true});                                                 // 149
-                                                                                                      // 150
-  if (self.reactive) {                                                                                // 151
-    self._depend({                                                                                    // 152
-      addedBefore: true,                                                                              // 153
-      removed: true,                                                                                  // 154
-      changed: true,                                                                                  // 155
-      movedBefore: true});                                                                            // 156
-  }                                                                                                   // 157
+                                                                                                      // 88
+LocalCollection.Cursor = function (collection, selector, options) {                                   // 89
+  var self = this;                                                                                    // 90
+  if (!options) options = {};                                                                         // 91
+                                                                                                      // 92
+  self.collection = collection;                                                                       // 93
+  self.sorter = null;                                                                                 // 94
+                                                                                                      // 95
+  if (LocalCollection._selectorIsId(selector)) {                                                      // 96
+    // stash for fast path                                                                            // 97
+    self._selectorId = selector;                                                                      // 98
+    self.matcher = new Minimongo.Matcher(selector, self);                                             // 99
+  } else {                                                                                            // 100
+    self._selectorId = undefined;                                                                     // 101
+    self.matcher = new Minimongo.Matcher(selector, self);                                             // 102
+    if (self.matcher.hasGeoQuery() || options.sort) {                                                 // 103
+      self.sorter = new Minimongo.Sorter(options.sort || [],                                          // 104
+                                         { matcher: self.matcher });                                  // 105
+    }                                                                                                 // 106
+  }                                                                                                   // 107
+  self.skip = options.skip;                                                                           // 108
+  self.limit = options.limit;                                                                         // 109
+  self.fields = options.fields;                                                                       // 110
+                                                                                                      // 111
+  if (self.fields)                                                                                    // 112
+    self.projectionFn = LocalCollection._compileProjection(self.fields);                              // 113
+                                                                                                      // 114
+  self._transform = LocalCollection.wrapTransform(options.transform);                                 // 115
+                                                                                                      // 116
+  // by default, queries register w/ Tracker when it is available.                                    // 117
+  if (typeof Tracker !== "undefined")                                                                 // 118
+    self.reactive = (options.reactive === undefined) ? true : options.reactive;                       // 119
+};                                                                                                    // 120
+                                                                                                      // 121
+// Since we don't actually have a "nextObject" interface, there's really no                           // 122
+// reason to have a "rewind" interface.  All it did was make multiple calls                           // 123
+// to fetch/map/forEach return nothing the second time.                                               // 124
+// XXX COMPAT WITH 0.8.1                                                                              // 125
+LocalCollection.Cursor.prototype.rewind = function () {                                               // 126
+};                                                                                                    // 127
+                                                                                                      // 128
+LocalCollection.prototype.findOne = function (selector, options) {                                    // 129
+  if (arguments.length === 0)                                                                         // 130
+    selector = {};                                                                                    // 131
+                                                                                                      // 132
+  // NOTE: by setting limit 1 here, we end up using very inefficient                                  // 133
+  // code that recomputes the whole query on each update. The upside is                               // 134
+  // that when you reactively depend on a findOne you only get                                        // 135
+  // invalidated when the found object changes, not any object in the                                 // 136
+  // collection. Most findOne will be by id, which has a fast path, so                                // 137
+  // this might not be a big deal. In most cases, invalidation causes                                 // 138
+  // the called to re-query anyway, so this should be a net performance                               // 139
+  // improvement.                                                                                     // 140
+  options = options || {};                                                                            // 141
+  options.limit = 1;                                                                                  // 142
+                                                                                                      // 143
+  return this.find(selector, options).fetch()[0];                                                     // 144
+};                                                                                                    // 145
+                                                                                                      // 146
+/**                                                                                                   // 147
+ * @summary Call `callback` once for each matching document, sequentially and synchronously.          // 148
+ * @locus Anywhere                                                                                    // 149
+ * @method  forEach                                                                                   // 150
+ * @instance                                                                                          // 151
+ * @memberOf Mongo.Cursor                                                                             // 152
+ * @param {Function} callback Function to call. It will be called with three arguments: the document, a 0-based index, and <em>cursor</em> itself.
+ * @param {Any} [thisArg] An object which will be the value of `this` inside `callback`.              // 154
+ */                                                                                                   // 155
+LocalCollection.Cursor.prototype.forEach = function (callback, thisArg) {                             // 156
+  var self = this;                                                                                    // 157
                                                                                                       // 158
-  _.each(objects, function (elt, i) {                                                                 // 159
-    if (self.projectionFn) {                                                                          // 160
-      elt = self.projectionFn(elt);                                                                   // 161
-    } else {                                                                                          // 162
-      // projection functions always clone the pieces they use, but if not we                         // 163
-      // have to do it here.                                                                          // 164
-      elt = EJSON.clone(elt);                                                                         // 165
-    }                                                                                                 // 166
-                                                                                                      // 167
-    if (self._transform)                                                                              // 168
-      elt = self._transform(elt);                                                                     // 169
-    callback.call(thisArg, elt, i, self);                                                             // 170
-  });                                                                                                 // 171
-};                                                                                                    // 172
-                                                                                                      // 173
-LocalCollection.Cursor.prototype.getTransform = function () {                                         // 174
-  return this._transform;                                                                             // 175
-};                                                                                                    // 176
+  var objects = self._getRawObjects({ordered: true});                                                 // 159
+                                                                                                      // 160
+  if (self.reactive) {                                                                                // 161
+    self._depend({                                                                                    // 162
+      addedBefore: true,                                                                              // 163
+      removed: true,                                                                                  // 164
+      changed: true,                                                                                  // 165
+      movedBefore: true});                                                                            // 166
+  }                                                                                                   // 167
+                                                                                                      // 168
+  _.each(objects, function (elt, i) {                                                                 // 169
+    if (self.projectionFn) {                                                                          // 170
+      elt = self.projectionFn(elt);                                                                   // 171
+    } else {                                                                                          // 172
+      // projection functions always clone the pieces they use, but if not we                         // 173
+      // have to do it here.                                                                          // 174
+      elt = EJSON.clone(elt);                                                                         // 175
+    }                                                                                                 // 176
                                                                                                       // 177
-LocalCollection.Cursor.prototype.map = function (callback, thisArg) {                                 // 178
-  var self = this;                                                                                    // 179
-  var res = [];                                                                                       // 180
-  self.forEach(function (doc, index) {                                                                // 181
-    res.push(callback.call(thisArg, doc, index, self));                                               // 182
-  });                                                                                                 // 183
-  return res;                                                                                         // 184
-};                                                                                                    // 185
-                                                                                                      // 186
-LocalCollection.Cursor.prototype.fetch = function () {                                                // 187
-  var self = this;                                                                                    // 188
-  var res = [];                                                                                       // 189
-  self.forEach(function (doc) {                                                                       // 190
-    res.push(doc);                                                                                    // 191
-  });                                                                                                 // 192
-  return res;                                                                                         // 193
-};                                                                                                    // 194
-                                                                                                      // 195
-LocalCollection.Cursor.prototype.count = function () {                                                // 196
-  var self = this;                                                                                    // 197
-                                                                                                      // 198
-  if (self.reactive)                                                                                  // 199
-    self._depend({added: true, removed: true},                                                        // 200
-                 true /* allow the observe to be unordered */);                                       // 201
-                                                                                                      // 202
-  return self._getRawObjects({ordered: true}).length;                                                 // 203
+    if (self._transform)                                                                              // 178
+      elt = self._transform(elt);                                                                     // 179
+    callback.call(thisArg, elt, i, self);                                                             // 180
+  });                                                                                                 // 181
+};                                                                                                    // 182
+                                                                                                      // 183
+LocalCollection.Cursor.prototype.getTransform = function () {                                         // 184
+  return this._transform;                                                                             // 185
+};                                                                                                    // 186
+                                                                                                      // 187
+/**                                                                                                   // 188
+ * @summary Map callback over all matching documents.  Returns an Array.                              // 189
+ * @locus Anywhere                                                                                    // 190
+ * @method map                                                                                        // 191
+ * @instance                                                                                          // 192
+ * @memberOf Mongo.Cursor                                                                             // 193
+ * @param {Function} callback Function to call. It will be called with three arguments: the document, a 0-based index, and <em>cursor</em> itself.
+ * @param {Any} [thisArg] An object which will be the value of `this` inside `callback`.              // 195
+ */                                                                                                   // 196
+LocalCollection.Cursor.prototype.map = function (callback, thisArg) {                                 // 197
+  var self = this;                                                                                    // 198
+  var res = [];                                                                                       // 199
+  self.forEach(function (doc, index) {                                                                // 200
+    res.push(callback.call(thisArg, doc, index, self));                                               // 201
+  });                                                                                                 // 202
+  return res;                                                                                         // 203
 };                                                                                                    // 204
                                                                                                       // 205
-LocalCollection.Cursor.prototype._publishCursor = function (sub) {                                    // 206
-  var self = this;                                                                                    // 207
-  if (! self.collection.name)                                                                         // 208
-    throw new Error("Can't publish a cursor from a collection without a name.");                      // 209
-  var collection = self.collection.name;                                                              // 210
-                                                                                                      // 211
-  // XXX minimongo should not depend on mongo-livedata!                                               // 212
-  return Meteor.Collection._publishCursor(self, sub, collection);                                     // 213
-};                                                                                                    // 214
-                                                                                                      // 215
-LocalCollection.Cursor.prototype._getCollectionName = function () {                                   // 216
-  var self = this;                                                                                    // 217
-  return self.collection.name;                                                                        // 218
-};                                                                                                    // 219
-                                                                                                      // 220
-LocalCollection._observeChangesCallbacksAreOrdered = function (callbacks) {                           // 221
-  if (callbacks.added && callbacks.addedBefore)                                                       // 222
-    throw new Error("Please specify only one of added() and addedBefore()");                          // 223
-  return !!(callbacks.addedBefore || callbacks.movedBefore);                                          // 224
-};                                                                                                    // 225
-                                                                                                      // 226
-LocalCollection._observeCallbacksAreOrdered = function (callbacks) {                                  // 227
-  if (callbacks.addedAt && callbacks.added)                                                           // 228
-    throw new Error("Please specify only one of added() and addedAt()");                              // 229
-  if (callbacks.changedAt && callbacks.changed)                                                       // 230
-    throw new Error("Please specify only one of changed() and changedAt()");                          // 231
-  if (callbacks.removed && callbacks.removedAt)                                                       // 232
-    throw new Error("Please specify only one of removed() and removedAt()");                          // 233
-                                                                                                      // 234
-  return !!(callbacks.addedAt || callbacks.movedTo || callbacks.changedAt                             // 235
-            || callbacks.removedAt);                                                                  // 236
+/**                                                                                                   // 206
+ * @summary Return all matching documents as an Array.                                                // 207
+ * @memberOf Mongo.Cursor                                                                             // 208
+ * @method  fetch                                                                                     // 209
+ * @instance                                                                                          // 210
+ * @locus Anywhere                                                                                    // 211
+ */                                                                                                   // 212
+LocalCollection.Cursor.prototype.fetch = function () {                                                // 213
+  var self = this;                                                                                    // 214
+  var res = [];                                                                                       // 215
+  self.forEach(function (doc) {                                                                       // 216
+    res.push(doc);                                                                                    // 217
+  });                                                                                                 // 218
+  return res;                                                                                         // 219
+};                                                                                                    // 220
+                                                                                                      // 221
+/**                                                                                                   // 222
+ * @summary Returns the number of documents that match a query.                                       // 223
+ * @memberOf Mongo.Cursor                                                                             // 224
+ * @method  count                                                                                     // 225
+ * @instance                                                                                          // 226
+ * @locus Anywhere                                                                                    // 227
+ */                                                                                                   // 228
+LocalCollection.Cursor.prototype.count = function () {                                                // 229
+  var self = this;                                                                                    // 230
+                                                                                                      // 231
+  if (self.reactive)                                                                                  // 232
+    self._depend({added: true, removed: true},                                                        // 233
+                 true /* allow the observe to be unordered */);                                       // 234
+                                                                                                      // 235
+  return self._getRawObjects({ordered: true}).length;                                                 // 236
 };                                                                                                    // 237
                                                                                                       // 238
-// the handle that comes back from observe.                                                           // 239
-LocalCollection.ObserveHandle = function () {};                                                       // 240
-                                                                                                      // 241
-// options to contain:                                                                                // 242
-//  * callbacks for observe():                                                                        // 243
-//    - addedAt (document, atIndex)                                                                   // 244
-//    - added (document)                                                                              // 245
-//    - changedAt (newDocument, oldDocument, atIndex)                                                 // 246
-//    - changed (newDocument, oldDocument)                                                            // 247
-//    - removedAt (document, atIndex)                                                                 // 248
-//    - removed (document)                                                                            // 249
-//    - movedTo (document, oldIndex, newIndex)                                                        // 250
-//                                                                                                    // 251
-// attributes available on returned query handle:                                                     // 252
-//  * stop(): end updates                                                                             // 253
-//  * collection: the collection this query is querying                                               // 254
-//                                                                                                    // 255
-// iff x is a returned query handle, (x instanceof                                                    // 256
-// LocalCollection.ObserveHandle) is true                                                             // 257
-//                                                                                                    // 258
-// initial results delivered through added callback                                                   // 259
-// XXX maybe callbacks should take a list of objects, to expose transactions?                         // 260
-// XXX maybe support field limiting (to limit what you're notified on)                                // 261
-                                                                                                      // 262
-_.extend(LocalCollection.Cursor.prototype, {                                                          // 263
-  observe: function (options) {                                                                       // 264
-    var self = this;                                                                                  // 265
-    return LocalCollection._observeFromObserveChanges(self, options);                                 // 266
-  },                                                                                                  // 267
-  observeChanges: function (options) {                                                                // 268
-    var self = this;                                                                                  // 269
-                                                                                                      // 270
-    var ordered = LocalCollection._observeChangesCallbacksAreOrdered(options);                        // 271
-                                                                                                      // 272
-    // there are several places that assume you aren't combining skip/limit with                      // 273
-    // unordered observe.  eg, update's EJSON.clone, and the "there are several"                      // 274
-    // comment in _modifyAndNotify                                                                    // 275
-    // XXX allow skip/limit with unordered observe                                                    // 276
-    if (!options._allow_unordered && !ordered && (self.skip || self.limit))                           // 277
-      throw new Error("must use ordered observe with skip or limit");                                 // 278
-                                                                                                      // 279
-    if (self.fields && (self.fields._id === 0 || self.fields._id === false))                          // 280
-      throw Error("You may not observe a cursor with {fields: {_id: 0}}");                            // 281
-                                                                                                      // 282
-    var query = {                                                                                     // 283
-      matcher: self.matcher, // not fast pathed                                                       // 284
-      sorter: ordered && self.sorter,                                                                 // 285
-      distances: (                                                                                    // 286
-        self.matcher.hasGeoQuery() && ordered && new LocalCollection._IdMap),                         // 287
-      resultsSnapshot: null,                                                                          // 288
-      ordered: ordered,                                                                               // 289
-      cursor: self,                                                                                   // 290
-      projectionFn: self.projectionFn                                                                 // 291
-    };                                                                                                // 292
-    var qid;                                                                                          // 293
-                                                                                                      // 294
-    // Non-reactive queries call added[Before] and then never call anything                           // 295
-    // else.                                                                                          // 296
-    if (self.reactive) {                                                                              // 297
-      qid = self.collection.next_qid++;                                                               // 298
-      self.collection.queries[qid] = query;                                                           // 299
-    }                                                                                                 // 300
-    query.results = self._getRawObjects({                                                             // 301
-      ordered: ordered, distances: query.distances});                                                 // 302
-    if (self.collection.paused)                                                                       // 303
-      query.resultsSnapshot = (ordered ? [] : new LocalCollection._IdMap);                            // 304
-                                                                                                      // 305
-    // wrap callbacks we were passed. callbacks only fire when not paused and                         // 306
-    // are never undefined                                                                            // 307
-    // Filters out blacklisted fields according to cursor's projection.                               // 308
-    // XXX wrong place for this?                                                                      // 309
-                                                                                                      // 310
-    // furthermore, callbacks enqueue until the operation we're working on is                         // 311
-    // done.                                                                                          // 312
-    var wrapCallback = function (f, fieldsIndex, ignoreEmptyFields) {                                 // 313
-      if (!f)                                                                                         // 314
-        return function () {};                                                                        // 315
-      return function (/*args*/) {                                                                    // 316
-        var context = this;                                                                           // 317
-        var args = arguments;                                                                         // 318
-                                                                                                      // 319
-        if (self.collection.paused)                                                                   // 320
-          return;                                                                                     // 321
-                                                                                                      // 322
-        if (fieldsIndex !== undefined && self.projectionFn) {                                         // 323
-          args[fieldsIndex] = self.projectionFn(args[fieldsIndex]);                                   // 324
-          if (ignoreEmptyFields && _.isEmpty(args[fieldsIndex]))                                      // 325
-            return;                                                                                   // 326
-        }                                                                                             // 327
-                                                                                                      // 328
-        self.collection._observeQueue.queueTask(function () {                                         // 329
-          f.apply(context, args);                                                                     // 330
-        });                                                                                           // 331
-      };                                                                                              // 332
-    };                                                                                                // 333
-    query.added = wrapCallback(options.added, 1);                                                     // 334
-    query.changed = wrapCallback(options.changed, 1, true);                                           // 335
-    query.removed = wrapCallback(options.removed);                                                    // 336
-    if (ordered) {                                                                                    // 337
-      query.addedBefore = wrapCallback(options.addedBefore, 1);                                       // 338
-      query.movedBefore = wrapCallback(options.movedBefore);                                          // 339
-    }                                                                                                 // 340
-                                                                                                      // 341
-    if (!options._suppress_initial && !self.collection.paused) {                                      // 342
-      // XXX unify ordered and unordered interface                                                    // 343
-      var each = ordered                                                                              // 344
-            ? _.bind(_.each, null, query.results)                                                     // 345
-            : _.bind(query.results.forEach, query.results);                                           // 346
-      each(function (doc) {                                                                           // 347
-        var fields = EJSON.clone(doc);                                                                // 348
-                                                                                                      // 349
-        delete fields._id;                                                                            // 350
-        if (ordered)                                                                                  // 351
-          query.addedBefore(doc._id, fields, null);                                                   // 352
-        query.added(doc._id, fields);                                                                 // 353
-      });                                                                                             // 354
-    }                                                                                                 // 355
-                                                                                                      // 356
-    var handle = new LocalCollection.ObserveHandle;                                                   // 357
-    _.extend(handle, {                                                                                // 358
-      collection: self.collection,                                                                    // 359
-      stop: function () {                                                                             // 360
-        if (self.reactive)                                                                            // 361
-          delete self.collection.queries[qid];                                                        // 362
-      }                                                                                               // 363
-    });                                                                                               // 364
-                                                                                                      // 365
-    if (self.reactive && Deps.active) {                                                               // 366
-      // XXX in many cases, the same observe will be recreated when                                   // 367
-      // the current autorun is rerun.  we could save work by                                         // 368
-      // letting it linger across rerun and potentially get                                           // 369
-      // repurposed if the same observe is performed, using logic                                     // 370
-      // similar to that of Meteor.subscribe.                                                         // 371
-      Deps.onInvalidate(function () {                                                                 // 372
-        handle.stop();                                                                                // 373
-      });                                                                                             // 374
-    }                                                                                                 // 375
-    // run the observe callbacks resulting from the initial contents                                  // 376
-    // before we leave the observe.                                                                   // 377
-    self.collection._observeQueue.drain();                                                            // 378
-                                                                                                      // 379
-    return handle;                                                                                    // 380
-  }                                                                                                   // 381
-});                                                                                                   // 382
-                                                                                                      // 383
-// Returns a collection of matching objects, but doesn't deep copy them.                              // 384
-//                                                                                                    // 385
-// If ordered is set, returns a sorted array, respecting sorter, skip, and limit                      // 386
-// properties of the query.  if sorter is falsey, no sort -- you get the natural                      // 387
-// order.                                                                                             // 388
-//                                                                                                    // 389
-// If ordered is not set, returns an object mapping from ID to doc (sorter, skip                      // 390
-// and limit should not be set).                                                                      // 391
-//                                                                                                    // 392
-// If ordered is set and this cursor is a $near geoquery, then this function                          // 393
-// will use an _IdMap to track each distance from the $near argument point in                         // 394
-// order to use it as a sort key. If an _IdMap is passed in the 'distances'                           // 395
-// argument, this function will clear it and use it for this purpose (otherwise                       // 396
-// it will just create its own _IdMap). The observeChanges implementation uses                        // 397
-// this to remember the distances after this function returns.                                        // 398
-LocalCollection.Cursor.prototype._getRawObjects = function (options) {                                // 399
-  var self = this;                                                                                    // 400
-  options = options || {};                                                                            // 401
-                                                                                                      // 402
-  // XXX use OrderedDict instead of array, and make IdMap and OrderedDict                             // 403
-  // compatible                                                                                       // 404
-  var results = options.ordered ? [] : new LocalCollection._IdMap;                                    // 405
-                                                                                                      // 406
-  // fast path for single ID value                                                                    // 407
-  if (self._selectorId !== undefined) {                                                               // 408
-    // If you have non-zero skip and ask for a single id, you get                                     // 409
-    // nothing. This is so it matches the behavior of the '{_id: foo}'                                // 410
-    // path.                                                                                          // 411
-    if (self.skip)                                                                                    // 412
-      return results;                                                                                 // 413
-                                                                                                      // 414
-    var selectedDoc = self.collection._docs.get(self._selectorId);                                    // 415
-    if (selectedDoc) {                                                                                // 416
-      if (options.ordered)                                                                            // 417
-        results.push(selectedDoc);                                                                    // 418
-      else                                                                                            // 419
-        results.set(self._selectorId, selectedDoc);                                                   // 420
-    }                                                                                                 // 421
-    return results;                                                                                   // 422
-  }                                                                                                   // 423
-                                                                                                      // 424
-  // slow path for arbitrary selector, sort, skip, limit                                              // 425
-                                                                                                      // 426
-  // in the observeChanges case, distances is actually part of the "query" (ie,                       // 427
-  // live results set) object.  in other cases, distances is only used inside                         // 428
-  // this function.                                                                                   // 429
-  var distances;                                                                                      // 430
-  if (self.matcher.hasGeoQuery() && options.ordered) {                                                // 431
-    if (options.distances) {                                                                          // 432
-      distances = options.distances;                                                                  // 433
-      distances.clear();                                                                              // 434
-    } else {                                                                                          // 435
-      distances = new LocalCollection._IdMap();                                                       // 436
-    }                                                                                                 // 437
-  }                                                                                                   // 438
-                                                                                                      // 439
-  self.collection._docs.forEach(function (doc, id) {                                                  // 440
-    var matchResult = self.matcher.documentMatches(doc);                                              // 441
-    if (matchResult.result) {                                                                         // 442
-      if (options.ordered) {                                                                          // 443
-        results.push(doc);                                                                            // 444
-        if (distances && matchResult.distance !== undefined)                                          // 445
-          distances.set(id, matchResult.distance);                                                    // 446
-      } else {                                                                                        // 447
-        results.set(id, doc);                                                                         // 448
-      }                                                                                               // 449
-    }                                                                                                 // 450
-    // Fast path for limited unsorted queries.                                                        // 451
-    // XXX 'length' check here seems wrong for ordered                                                // 452
-    if (self.limit && !self.skip && !self.sorter &&                                                   // 453
-        results.length === self.limit)                                                                // 454
-      return false;  // break                                                                         // 455
-    return true;  // continue                                                                         // 456
-  });                                                                                                 // 457
-                                                                                                      // 458
-  if (!options.ordered)                                                                               // 459
-    return results;                                                                                   // 460
-                                                                                                      // 461
-  if (self.sorter) {                                                                                  // 462
-    var comparator = self.sorter.getComparator({distances: distances});                               // 463
-    results.sort(comparator);                                                                         // 464
-  }                                                                                                   // 465
-                                                                                                      // 466
-  var idx_start = self.skip || 0;                                                                     // 467
-  var idx_end = self.limit ? (self.limit + idx_start) : results.length;                               // 468
-  return results.slice(idx_start, idx_end);                                                           // 469
-};                                                                                                    // 470
-                                                                                                      // 471
-// XXX Maybe we need a version of observe that just calls a callback if                               // 472
-// anything changed.                                                                                  // 473
-LocalCollection.Cursor.prototype._depend = function (changers, _allow_unordered) {                    // 474
-  var self = this;                                                                                    // 475
-                                                                                                      // 476
-  if (Deps.active) {                                                                                  // 477
-    var v = new Deps.Dependency;                                                                      // 478
-    v.depend();                                                                                       // 479
-    var notifyChange = _.bind(v.changed, v);                                                          // 480
-                                                                                                      // 481
-    var options = {                                                                                   // 482
-      _suppress_initial: true,                                                                        // 483
-      _allow_unordered: _allow_unordered                                                              // 484
-    };                                                                                                // 485
-    _.each(['added', 'changed', 'removed', 'addedBefore', 'movedBefore'],                             // 486
-           function (fnName) {                                                                        // 487
-             if (changers[fnName])                                                                    // 488
-               options[fnName] = notifyChange;                                                        // 489
-           });                                                                                        // 490
-                                                                                                      // 491
-    // observeChanges will stop() when this computation is invalidated                                // 492
-    self.observeChanges(options);                                                                     // 493
-  }                                                                                                   // 494
-};                                                                                                    // 495
-                                                                                                      // 496
-// XXX enforce rule that field names can't start with '$' or contain '.'                              // 497
-// (real mongodb does in fact enforce this)                                                           // 498
-// XXX possibly enforce that 'undefined' does not appear (we assume                                   // 499
-// this in our handling of null and $exists)                                                          // 500
-LocalCollection.prototype.insert = function (doc, callback) {                                         // 501
-  var self = this;                                                                                    // 502
-  doc = EJSON.clone(doc);                                                                             // 503
-                                                                                                      // 504
-  if (!_.has(doc, '_id')) {                                                                           // 505
-    // if you really want to use ObjectIDs, set this global.                                          // 506
-    // Meteor.Collection specifies its own ids and does not use this code.                            // 507
-    doc._id = LocalCollection._useOID ? new LocalCollection._ObjectID()                               // 508
-                                      : Random.id();                                                  // 509
-  }                                                                                                   // 510
-  var id = doc._id;                                                                                   // 511
-                                                                                                      // 512
-  if (self._docs.has(id))                                                                             // 513
-    throw MinimongoError("Duplicate _id '" + id + "'");                                               // 514
-                                                                                                      // 515
-  self._saveOriginal(id, undefined);                                                                  // 516
-  self._docs.set(id, doc);                                                                            // 517
-                                                                                                      // 518
-  var queriesToRecompute = [];                                                                        // 519
-  // trigger live queries that match                                                                  // 520
-  for (var qid in self.queries) {                                                                     // 521
-    var query = self.queries[qid];                                                                    // 522
-    var matchResult = query.matcher.documentMatches(doc);                                             // 523
-    if (matchResult.result) {                                                                         // 524
-      if (query.distances && matchResult.distance !== undefined)                                      // 525
-        query.distances.set(id, matchResult.distance);                                                // 526
-      if (query.cursor.skip || query.cursor.limit)                                                    // 527
-        queriesToRecompute.push(qid);                                                                 // 528
-      else                                                                                            // 529
-        LocalCollection._insertInResults(query, doc);                                                 // 530
-    }                                                                                                 // 531
-  }                                                                                                   // 532
-                                                                                                      // 533
-  _.each(queriesToRecompute, function (qid) {                                                         // 534
-    if (self.queries[qid])                                                                            // 535
-      LocalCollection._recomputeResults(self.queries[qid]);                                           // 536
-  });                                                                                                 // 537
-  self._observeQueue.drain();                                                                         // 538
+LocalCollection.Cursor.prototype._publishCursor = function (sub) {                                    // 239
+  var self = this;                                                                                    // 240
+  if (! self.collection.name)                                                                         // 241
+    throw new Error("Can't publish a cursor from a collection without a name.");                      // 242
+  var collection = self.collection.name;                                                              // 243
+                                                                                                      // 244
+  // XXX minimongo should not depend on mongo-livedata!                                               // 245
+  return Mongo.Collection._publishCursor(self, sub, collection);                                      // 246
+};                                                                                                    // 247
+                                                                                                      // 248
+LocalCollection.Cursor.prototype._getCollectionName = function () {                                   // 249
+  var self = this;                                                                                    // 250
+  return self.collection.name;                                                                        // 251
+};                                                                                                    // 252
+                                                                                                      // 253
+LocalCollection._observeChangesCallbacksAreOrdered = function (callbacks) {                           // 254
+  if (callbacks.added && callbacks.addedBefore)                                                       // 255
+    throw new Error("Please specify only one of added() and addedBefore()");                          // 256
+  return !!(callbacks.addedBefore || callbacks.movedBefore);                                          // 257
+};                                                                                                    // 258
+                                                                                                      // 259
+LocalCollection._observeCallbacksAreOrdered = function (callbacks) {                                  // 260
+  if (callbacks.addedAt && callbacks.added)                                                           // 261
+    throw new Error("Please specify only one of added() and addedAt()");                              // 262
+  if (callbacks.changedAt && callbacks.changed)                                                       // 263
+    throw new Error("Please specify only one of changed() and changedAt()");                          // 264
+  if (callbacks.removed && callbacks.removedAt)                                                       // 265
+    throw new Error("Please specify only one of removed() and removedAt()");                          // 266
+                                                                                                      // 267
+  return !!(callbacks.addedAt || callbacks.movedTo || callbacks.changedAt                             // 268
+            || callbacks.removedAt);                                                                  // 269
+};                                                                                                    // 270
+                                                                                                      // 271
+// the handle that comes back from observe.                                                           // 272
+LocalCollection.ObserveHandle = function () {};                                                       // 273
+                                                                                                      // 274
+// options to contain:                                                                                // 275
+//  * callbacks for observe():                                                                        // 276
+//    - addedAt (document, atIndex)                                                                   // 277
+//    - added (document)                                                                              // 278
+//    - changedAt (newDocument, oldDocument, atIndex)                                                 // 279
+//    - changed (newDocument, oldDocument)                                                            // 280
+//    - removedAt (document, atIndex)                                                                 // 281
+//    - removed (document)                                                                            // 282
+//    - movedTo (document, oldIndex, newIndex)                                                        // 283
+//                                                                                                    // 284
+// attributes available on returned query handle:                                                     // 285
+//  * stop(): end updates                                                                             // 286
+//  * collection: the collection this query is querying                                               // 287
+//                                                                                                    // 288
+// iff x is a returned query handle, (x instanceof                                                    // 289
+// LocalCollection.ObserveHandle) is true                                                             // 290
+//                                                                                                    // 291
+// initial results delivered through added callback                                                   // 292
+// XXX maybe callbacks should take a list of objects, to expose transactions?                         // 293
+// XXX maybe support field limiting (to limit what you're notified on)                                // 294
+                                                                                                      // 295
+_.extend(LocalCollection.Cursor.prototype, {                                                          // 296
+  /**                                                                                                 // 297
+   * @summary Watch a query.  Receive callbacks as the result set changes.                            // 298
+   * @locus Anywhere                                                                                  // 299
+   * @memberOf Mongo.Cursor                                                                           // 300
+   * @instance                                                                                        // 301
+   * @param {Object} callbacks Functions to call to deliver the result set as it changes              // 302
+   */                                                                                                 // 303
+  observe: function (options) {                                                                       // 304
+    var self = this;                                                                                  // 305
+    return LocalCollection._observeFromObserveChanges(self, options);                                 // 306
+  },                                                                                                  // 307
+                                                                                                      // 308
+  /**                                                                                                 // 309
+   * @summary Watch a query.  Receive callbacks as the result set changes.  Only the differences between the old and new documents are passed to the callbacks.
+   * @locus Anywhere                                                                                  // 311
+   * @memberOf Mongo.Cursor                                                                           // 312
+   * @instance                                                                                        // 313
+   * @param {Object} callbacks Functions to call to deliver the result set as it changes              // 314
+   */                                                                                                 // 315
+  observeChanges: function (options) {                                                                // 316
+    var self = this;                                                                                  // 317
+                                                                                                      // 318
+    var ordered = LocalCollection._observeChangesCallbacksAreOrdered(options);                        // 319
+                                                                                                      // 320
+    // there are several places that assume you aren't combining skip/limit with                      // 321
+    // unordered observe.  eg, update's EJSON.clone, and the "there are several"                      // 322
+    // comment in _modifyAndNotify                                                                    // 323
+    // XXX allow skip/limit with unordered observe                                                    // 324
+    if (!options._allow_unordered && !ordered && (self.skip || self.limit))                           // 325
+      throw new Error("must use ordered observe with skip or limit");                                 // 326
+                                                                                                      // 327
+    if (self.fields && (self.fields._id === 0 || self.fields._id === false))                          // 328
+      throw Error("You may not observe a cursor with {fields: {_id: 0}}");                            // 329
+                                                                                                      // 330
+    var query = {                                                                                     // 331
+      matcher: self.matcher, // not fast pathed                                                       // 332
+      sorter: ordered && self.sorter,                                                                 // 333
+      distances: (                                                                                    // 334
+        self.matcher.hasGeoQuery() && ordered && new LocalCollection._IdMap),                         // 335
+      resultsSnapshot: null,                                                                          // 336
+      ordered: ordered,                                                                               // 337
+      cursor: self,                                                                                   // 338
+      projectionFn: self.projectionFn                                                                 // 339
+    };                                                                                                // 340
+    var qid;                                                                                          // 341
+                                                                                                      // 342
+    // Non-reactive queries call added[Before] and then never call anything                           // 343
+    // else.                                                                                          // 344
+    if (self.reactive) {                                                                              // 345
+      qid = self.collection.next_qid++;                                                               // 346
+      self.collection.queries[qid] = query;                                                           // 347
+    }                                                                                                 // 348
+    query.results = self._getRawObjects({                                                             // 349
+      ordered: ordered, distances: query.distances});                                                 // 350
+    if (self.collection.paused)                                                                       // 351
+      query.resultsSnapshot = (ordered ? [] : new LocalCollection._IdMap);                            // 352
+                                                                                                      // 353
+    // wrap callbacks we were passed. callbacks only fire when not paused and                         // 354
+    // are never undefined                                                                            // 355
+    // Filters out blacklisted fields according to cursor's projection.                               // 356
+    // XXX wrong place for this?                                                                      // 357
+                                                                                                      // 358
+    // furthermore, callbacks enqueue until the operation we're working on is                         // 359
+    // done.                                                                                          // 360
+    var wrapCallback = function (f, fieldsIndex, ignoreEmptyFields) {                                 // 361
+      if (!f)                                                                                         // 362
+        return function () {};                                                                        // 363
+      return function (/*args*/) {                                                                    // 364
+        var context = this;                                                                           // 365
+        var args = arguments;                                                                         // 366
+                                                                                                      // 367
+        if (self.collection.paused)                                                                   // 368
+          return;                                                                                     // 369
+                                                                                                      // 370
+        if (fieldsIndex !== undefined && self.projectionFn) {                                         // 371
+          args[fieldsIndex] = self.projectionFn(args[fieldsIndex]);                                   // 372
+          if (ignoreEmptyFields && _.isEmpty(args[fieldsIndex]))                                      // 373
+            return;                                                                                   // 374
+        }                                                                                             // 375
+                                                                                                      // 376
+        self.collection._observeQueue.queueTask(function () {                                         // 377
+          f.apply(context, args);                                                                     // 378
+        });                                                                                           // 379
+      };                                                                                              // 380
+    };                                                                                                // 381
+    query.added = wrapCallback(options.added, 1);                                                     // 382
+    query.changed = wrapCallback(options.changed, 1, true);                                           // 383
+    query.removed = wrapCallback(options.removed);                                                    // 384
+    if (ordered) {                                                                                    // 385
+      query.addedBefore = wrapCallback(options.addedBefore, 1);                                       // 386
+      query.movedBefore = wrapCallback(options.movedBefore);                                          // 387
+    }                                                                                                 // 388
+                                                                                                      // 389
+    if (!options._suppress_initial && !self.collection.paused) {                                      // 390
+      // XXX unify ordered and unordered interface                                                    // 391
+      var each = ordered                                                                              // 392
+            ? _.bind(_.each, null, query.results)                                                     // 393
+            : _.bind(query.results.forEach, query.results);                                           // 394
+      each(function (doc) {                                                                           // 395
+        var fields = EJSON.clone(doc);                                                                // 396
+                                                                                                      // 397
+        delete fields._id;                                                                            // 398
+        if (ordered)                                                                                  // 399
+          query.addedBefore(doc._id, fields, null);                                                   // 400
+        query.added(doc._id, fields);                                                                 // 401
+      });                                                                                             // 402
+    }                                                                                                 // 403
+                                                                                                      // 404
+    var handle = new LocalCollection.ObserveHandle;                                                   // 405
+    _.extend(handle, {                                                                                // 406
+      collection: self.collection,                                                                    // 407
+      stop: function () {                                                                             // 408
+        if (self.reactive)                                                                            // 409
+          delete self.collection.queries[qid];                                                        // 410
+      }                                                                                               // 411
+    });                                                                                               // 412
+                                                                                                      // 413
+    if (self.reactive && Tracker.active) {                                                            // 414
+      // XXX in many cases, the same observe will be recreated when                                   // 415
+      // the current autorun is rerun.  we could save work by                                         // 416
+      // letting it linger across rerun and potentially get                                           // 417
+      // repurposed if the same observe is performed, using logic                                     // 418
+      // similar to that of Meteor.subscribe.                                                         // 419
+      Tracker.onInvalidate(function () {                                                              // 420
+        handle.stop();                                                                                // 421
+      });                                                                                             // 422
+    }                                                                                                 // 423
+    // run the observe callbacks resulting from the initial contents                                  // 424
+    // before we leave the observe.                                                                   // 425
+    self.collection._observeQueue.drain();                                                            // 426
+                                                                                                      // 427
+    return handle;                                                                                    // 428
+  }                                                                                                   // 429
+});                                                                                                   // 430
+                                                                                                      // 431
+// Returns a collection of matching objects, but doesn't deep copy them.                              // 432
+//                                                                                                    // 433
+// If ordered is set, returns a sorted array, respecting sorter, skip, and limit                      // 434
+// properties of the query.  if sorter is falsey, no sort -- you get the natural                      // 435
+// order.                                                                                             // 436
+//                                                                                                    // 437
+// If ordered is not set, returns an object mapping from ID to doc (sorter, skip                      // 438
+// and limit should not be set).                                                                      // 439
+//                                                                                                    // 440
+// If ordered is set and this cursor is a $near geoquery, then this function                          // 441
+// will use an _IdMap to track each distance from the $near argument point in                         // 442
+// order to use it as a sort key. If an _IdMap is passed in the 'distances'                           // 443
+// argument, this function will clear it and use it for this purpose (otherwise                       // 444
+// it will just create its own _IdMap). The observeChanges implementation uses                        // 445
+// this to remember the distances after this function returns.                                        // 446
+LocalCollection.Cursor.prototype._getRawObjects = function (options) {                                // 447
+  var self = this;                                                                                    // 448
+  options = options || {};                                                                            // 449
+                                                                                                      // 450
+  // XXX use OrderedDict instead of array, and make IdMap and OrderedDict                             // 451
+  // compatible                                                                                       // 452
+  var results = options.ordered ? [] : new LocalCollection._IdMap;                                    // 453
+                                                                                                      // 454
+  // fast path for single ID value                                                                    // 455
+  if (self._selectorId !== undefined) {                                                               // 456
+    // If you have non-zero skip and ask for a single id, you get                                     // 457
+    // nothing. This is so it matches the behavior of the '{_id: foo}'                                // 458
+    // path.                                                                                          // 459
+    if (self.skip)                                                                                    // 460
+      return results;                                                                                 // 461
+                                                                                                      // 462
+    var selectedDoc = self.collection._docs.get(self._selectorId);                                    // 463
+    if (selectedDoc) {                                                                                // 464
+      if (options.ordered)                                                                            // 465
+        results.push(selectedDoc);                                                                    // 466
+      else                                                                                            // 467
+        results.set(self._selectorId, selectedDoc);                                                   // 468
+    }                                                                                                 // 469
+    return results;                                                                                   // 470
+  }                                                                                                   // 471
+                                                                                                      // 472
+  // slow path for arbitrary selector, sort, skip, limit                                              // 473
+                                                                                                      // 474
+  // in the observeChanges case, distances is actually part of the "query" (ie,                       // 475
+  // live results set) object.  in other cases, distances is only used inside                         // 476
+  // this function.                                                                                   // 477
+  var distances;                                                                                      // 478
+  if (self.matcher.hasGeoQuery() && options.ordered) {                                                // 479
+    if (options.distances) {                                                                          // 480
+      distances = options.distances;                                                                  // 481
+      distances.clear();                                                                              // 482
+    } else {                                                                                          // 483
+      distances = new LocalCollection._IdMap();                                                       // 484
+    }                                                                                                 // 485
+  }                                                                                                   // 486
+                                                                                                      // 487
+  self.collection._docs.forEach(function (doc, id) {                                                  // 488
+    var matchResult = self.matcher.documentMatches(doc);                                              // 489
+    if (matchResult.result) {                                                                         // 490
+      if (options.ordered) {                                                                          // 491
+        results.push(doc);                                                                            // 492
+        if (distances && matchResult.distance !== undefined)                                          // 493
+          distances.set(id, matchResult.distance);                                                    // 494
+      } else {                                                                                        // 495
+        results.set(id, doc);                                                                         // 496
+      }                                                                                               // 497
+    }                                                                                                 // 498
+    // Fast path for limited unsorted queries.                                                        // 499
+    // XXX 'length' check here seems wrong for ordered                                                // 500
+    if (self.limit && !self.skip && !self.sorter &&                                                   // 501
+        results.length === self.limit)                                                                // 502
+      return false;  // break                                                                         // 503
+    return true;  // continue                                                                         // 504
+  });                                                                                                 // 505
+                                                                                                      // 506
+  if (!options.ordered)                                                                               // 507
+    return results;                                                                                   // 508
+                                                                                                      // 509
+  if (self.sorter) {                                                                                  // 510
+    var comparator = self.sorter.getComparator({distances: distances});                               // 511
+    results.sort(comparator);                                                                         // 512
+  }                                                                                                   // 513
+                                                                                                      // 514
+  var idx_start = self.skip || 0;                                                                     // 515
+  var idx_end = self.limit ? (self.limit + idx_start) : results.length;                               // 516
+  return results.slice(idx_start, idx_end);                                                           // 517
+};                                                                                                    // 518
+                                                                                                      // 519
+// XXX Maybe we need a version of observe that just calls a callback if                               // 520
+// anything changed.                                                                                  // 521
+LocalCollection.Cursor.prototype._depend = function (changers, _allow_unordered) {                    // 522
+  var self = this;                                                                                    // 523
+                                                                                                      // 524
+  if (Tracker.active) {                                                                               // 525
+    var v = new Tracker.Dependency;                                                                   // 526
+    v.depend();                                                                                       // 527
+    var notifyChange = _.bind(v.changed, v);                                                          // 528
+                                                                                                      // 529
+    var options = {                                                                                   // 530
+      _suppress_initial: true,                                                                        // 531
+      _allow_unordered: _allow_unordered                                                              // 532
+    };                                                                                                // 533
+    _.each(['added', 'changed', 'removed', 'addedBefore', 'movedBefore'],                             // 534
+           function (fnName) {                                                                        // 535
+             if (changers[fnName])                                                                    // 536
+               options[fnName] = notifyChange;                                                        // 537
+           });                                                                                        // 538
                                                                                                       // 539
-  // Defer because the caller likely doesn't expect the callback to be run                            // 540
-  // immediately.                                                                                     // 541
-  if (callback)                                                                                       // 542
-    Meteor.defer(function () {                                                                        // 543
-      callback(null, id);                                                                             // 544
-    });                                                                                               // 545
-  return id;                                                                                          // 546
-};                                                                                                    // 547
-                                                                                                      // 548
-// Iterates over a subset of documents that could match selector; calls                               // 549
-// f(doc, id) on each of them.  Specifically, if selector specifies                                   // 550
-// specific _id's, it only looks at those.  doc is *not* cloned: it is the                            // 551
-// same object that is in _docs.                                                                      // 552
-LocalCollection.prototype._eachPossiblyMatchingDoc = function (selector, f) {                         // 553
-  var self = this;                                                                                    // 554
-  var specificIds = LocalCollection._idsMatchedBySelector(selector);                                  // 555
-  if (specificIds) {                                                                                  // 556
-    for (var i = 0; i < specificIds.length; ++i) {                                                    // 557
-      var id = specificIds[i];                                                                        // 558
-      var doc = self._docs.get(id);                                                                   // 559
-      if (doc) {                                                                                      // 560
-        var breakIfFalse = f(doc, id);                                                                // 561
-        if (breakIfFalse === false)                                                                   // 562
-          break;                                                                                      // 563
-      }                                                                                               // 564
-    }                                                                                                 // 565
-  } else {                                                                                            // 566
-    self._docs.forEach(f);                                                                            // 567
-  }                                                                                                   // 568
-};                                                                                                    // 569
-                                                                                                      // 570
-LocalCollection.prototype.remove = function (selector, callback) {                                    // 571
-  var self = this;                                                                                    // 572
-                                                                                                      // 573
-  // Easy special case: if we're not calling observeChanges callbacks and we're                       // 574
-  // not saving originals and we got asked to remove everything, then just empty                      // 575
-  // everything directly.                                                                             // 576
-  if (self.paused && !self._savedOriginals && EJSON.equals(selector, {})) {                           // 577
-    var result = self._docs.size();                                                                   // 578
-    self._docs.clear();                                                                               // 579
-    _.each(self.queries, function (query) {                                                           // 580
-      if (query.ordered) {                                                                            // 581
-        query.results = [];                                                                           // 582
-      } else {                                                                                        // 583
-        query.results.clear();                                                                        // 584
-      }                                                                                               // 585
-    });                                                                                               // 586
-    if (callback) {                                                                                   // 587
-      Meteor.defer(function () {                                                                      // 588
-        callback(null, result);                                                                       // 589
-      });                                                                                             // 590
-    }                                                                                                 // 591
-    return result;                                                                                    // 592
-  }                                                                                                   // 593
-                                                                                                      // 594
-  var matcher = new Minimongo.Matcher(selector, self);                                                // 595
-  var remove = [];                                                                                    // 596
-  self._eachPossiblyMatchingDoc(selector, function (doc, id) {                                        // 597
-    if (matcher.documentMatches(doc).result)                                                          // 598
-      remove.push(id);                                                                                // 599
-  });                                                                                                 // 600
-                                                                                                      // 601
-  var queriesToRecompute = [];                                                                        // 602
-  var queryRemove = [];                                                                               // 603
-  for (var i = 0; i < remove.length; i++) {                                                           // 604
-    var removeId = remove[i];                                                                         // 605
-    var removeDoc = self._docs.get(removeId);                                                         // 606
-    _.each(self.queries, function (query, qid) {                                                      // 607
-      if (query.matcher.documentMatches(removeDoc).result) {                                          // 608
-        if (query.cursor.skip || query.cursor.limit)                                                  // 609
-          queriesToRecompute.push(qid);                                                               // 610
-        else                                                                                          // 611
-          queryRemove.push({qid: qid, doc: removeDoc});                                               // 612
-      }                                                                                               // 613
-    });                                                                                               // 614
-    self._saveOriginal(removeId, removeDoc);                                                          // 615
-    self._docs.remove(removeId);                                                                      // 616
-  }                                                                                                   // 617
+    // observeChanges will stop() when this computation is invalidated                                // 540
+    self.observeChanges(options);                                                                     // 541
+  }                                                                                                   // 542
+};                                                                                                    // 543
+                                                                                                      // 544
+// XXX enforce rule that field names can't start with '$' or contain '.'                              // 545
+// (real mongodb does in fact enforce this)                                                           // 546
+// XXX possibly enforce that 'undefined' does not appear (we assume                                   // 547
+// this in our handling of null and $exists)                                                          // 548
+LocalCollection.prototype.insert = function (doc, callback) {                                         // 549
+  var self = this;                                                                                    // 550
+  doc = EJSON.clone(doc);                                                                             // 551
+                                                                                                      // 552
+  if (!_.has(doc, '_id')) {                                                                           // 553
+    // if you really want to use ObjectIDs, set this global.                                          // 554
+    // Mongo.Collection specifies its own ids and does not use this code.                             // 555
+    doc._id = LocalCollection._useOID ? new LocalCollection._ObjectID()                               // 556
+                                      : Random.id();                                                  // 557
+  }                                                                                                   // 558
+  var id = doc._id;                                                                                   // 559
+                                                                                                      // 560
+  if (self._docs.has(id))                                                                             // 561
+    throw MinimongoError("Duplicate _id '" + id + "'");                                               // 562
+                                                                                                      // 563
+  self._saveOriginal(id, undefined);                                                                  // 564
+  self._docs.set(id, doc);                                                                            // 565
+                                                                                                      // 566
+  var queriesToRecompute = [];                                                                        // 567
+  // trigger live queries that match                                                                  // 568
+  for (var qid in self.queries) {                                                                     // 569
+    var query = self.queries[qid];                                                                    // 570
+    var matchResult = query.matcher.documentMatches(doc);                                             // 571
+    if (matchResult.result) {                                                                         // 572
+      if (query.distances && matchResult.distance !== undefined)                                      // 573
+        query.distances.set(id, matchResult.distance);                                                // 574
+      if (query.cursor.skip || query.cursor.limit)                                                    // 575
+        queriesToRecompute.push(qid);                                                                 // 576
+      else                                                                                            // 577
+        LocalCollection._insertInResults(query, doc);                                                 // 578
+    }                                                                                                 // 579
+  }                                                                                                   // 580
+                                                                                                      // 581
+  _.each(queriesToRecompute, function (qid) {                                                         // 582
+    if (self.queries[qid])                                                                            // 583
+      LocalCollection._recomputeResults(self.queries[qid]);                                           // 584
+  });                                                                                                 // 585
+  self._observeQueue.drain();                                                                         // 586
+                                                                                                      // 587
+  // Defer because the caller likely doesn't expect the callback to be run                            // 588
+  // immediately.                                                                                     // 589
+  if (callback)                                                                                       // 590
+    Meteor.defer(function () {                                                                        // 591
+      callback(null, id);                                                                             // 592
+    });                                                                                               // 593
+  return id;                                                                                          // 594
+};                                                                                                    // 595
+                                                                                                      // 596
+// Iterates over a subset of documents that could match selector; calls                               // 597
+// f(doc, id) on each of them.  Specifically, if selector specifies                                   // 598
+// specific _id's, it only looks at those.  doc is *not* cloned: it is the                            // 599
+// same object that is in _docs.                                                                      // 600
+LocalCollection.prototype._eachPossiblyMatchingDoc = function (selector, f) {                         // 601
+  var self = this;                                                                                    // 602
+  var specificIds = LocalCollection._idsMatchedBySelector(selector);                                  // 603
+  if (specificIds) {                                                                                  // 604
+    for (var i = 0; i < specificIds.length; ++i) {                                                    // 605
+      var id = specificIds[i];                                                                        // 606
+      var doc = self._docs.get(id);                                                                   // 607
+      if (doc) {                                                                                      // 608
+        var breakIfFalse = f(doc, id);                                                                // 609
+        if (breakIfFalse === false)                                                                   // 610
+          break;                                                                                      // 611
+      }                                                                                               // 612
+    }                                                                                                 // 613
+  } else {                                                                                            // 614
+    self._docs.forEach(f);                                                                            // 615
+  }                                                                                                   // 616
+};                                                                                                    // 617
                                                                                                       // 618
-  // run live query callbacks _after_ we've removed the documents.                                    // 619
-  _.each(queryRemove, function (remove) {                                                             // 620
-    var query = self.queries[remove.qid];                                                             // 621
-    if (query) {                                                                                      // 622
-      query.distances && query.distances.remove(remove.doc._id);                                      // 623
-      LocalCollection._removeFromResults(query, remove.doc);                                          // 624
-    }                                                                                                 // 625
-  });                                                                                                 // 626
-  _.each(queriesToRecompute, function (qid) {                                                         // 627
-    var query = self.queries[qid];                                                                    // 628
-    if (query)                                                                                        // 629
-      LocalCollection._recomputeResults(query);                                                       // 630
-  });                                                                                                 // 631
-  self._observeQueue.drain();                                                                         // 632
-  result = remove.length;                                                                             // 633
-  if (callback)                                                                                       // 634
-    Meteor.defer(function () {                                                                        // 635
-      callback(null, result);                                                                         // 636
-    });                                                                                               // 637
-  return result;                                                                                      // 638
-};                                                                                                    // 639
-                                                                                                      // 640
-// XXX atomicity: if multi is true, and one modification fails, do                                    // 641
-// we rollback the whole operation, or what?                                                          // 642
-LocalCollection.prototype.update = function (selector, mod, options, callback) {                      // 643
-  var self = this;                                                                                    // 644
-  if (! callback && options instanceof Function) {                                                    // 645
-    callback = options;                                                                               // 646
-    options = null;                                                                                   // 647
-  }                                                                                                   // 648
-  if (!options) options = {};                                                                         // 649
-                                                                                                      // 650
-  var matcher = new Minimongo.Matcher(selector, self);                                                // 651
-                                                                                                      // 652
-  // Save the original results of any query that we might need to                                     // 653
-  // _recomputeResults on, because _modifyAndNotify will mutate the objects in                        // 654
-  // it. (We don't need to save the original results of paused queries because                        // 655
-  // they already have a resultsSnapshot and we won't be diffing in                                   // 656
-  // _recomputeResults.)                                                                              // 657
-  var qidToOriginalResults = {};                                                                      // 658
-  _.each(self.queries, function (query, qid) {                                                        // 659
-    // XXX for now, skip/limit implies ordered observe, so query.results is                           // 660
-    // always an array                                                                                // 661
-    if ((query.cursor.skip || query.cursor.limit) && !query.paused)                                   // 662
-      qidToOriginalResults[qid] = EJSON.clone(query.results);                                         // 663
-  });                                                                                                 // 664
-  var recomputeQids = {};                                                                             // 665
+LocalCollection.prototype.remove = function (selector, callback) {                                    // 619
+  var self = this;                                                                                    // 620
+                                                                                                      // 621
+  // Easy special case: if we're not calling observeChanges callbacks and we're                       // 622
+  // not saving originals and we got asked to remove everything, then just empty                      // 623
+  // everything directly.                                                                             // 624
+  if (self.paused && !self._savedOriginals && EJSON.equals(selector, {})) {                           // 625
+    var result = self._docs.size();                                                                   // 626
+    self._docs.clear();                                                                               // 627
+    _.each(self.queries, function (query) {                                                           // 628
+      if (query.ordered) {                                                                            // 629
+        query.results = [];                                                                           // 630
+      } else {                                                                                        // 631
+        query.results.clear();                                                                        // 632
+      }                                                                                               // 633
+    });                                                                                               // 634
+    if (callback) {                                                                                   // 635
+      Meteor.defer(function () {                                                                      // 636
+        callback(null, result);                                                                       // 637
+      });                                                                                             // 638
+    }                                                                                                 // 639
+    return result;                                                                                    // 640
+  }                                                                                                   // 641
+                                                                                                      // 642
+  var matcher = new Minimongo.Matcher(selector, self);                                                // 643
+  var remove = [];                                                                                    // 644
+  self._eachPossiblyMatchingDoc(selector, function (doc, id) {                                        // 645
+    if (matcher.documentMatches(doc).result)                                                          // 646
+      remove.push(id);                                                                                // 647
+  });                                                                                                 // 648
+                                                                                                      // 649
+  var queriesToRecompute = [];                                                                        // 650
+  var queryRemove = [];                                                                               // 651
+  for (var i = 0; i < remove.length; i++) {                                                           // 652
+    var removeId = remove[i];                                                                         // 653
+    var removeDoc = self._docs.get(removeId);                                                         // 654
+    _.each(self.queries, function (query, qid) {                                                      // 655
+      if (query.matcher.documentMatches(removeDoc).result) {                                          // 656
+        if (query.cursor.skip || query.cursor.limit)                                                  // 657
+          queriesToRecompute.push(qid);                                                               // 658
+        else                                                                                          // 659
+          queryRemove.push({qid: qid, doc: removeDoc});                                               // 660
+      }                                                                                               // 661
+    });                                                                                               // 662
+    self._saveOriginal(removeId, removeDoc);                                                          // 663
+    self._docs.remove(removeId);                                                                      // 664
+  }                                                                                                   // 665
                                                                                                       // 666
-  var updateCount = 0;                                                                                // 667
-                                                                                                      // 668
-  self._eachPossiblyMatchingDoc(selector, function (doc, id) {                                        // 669
-    var queryResult = matcher.documentMatches(doc);                                                   // 670
-    if (queryResult.result) {                                                                         // 671
-      // XXX Should we save the original even if mod ends up being a no-op?                           // 672
-      self._saveOriginal(id, doc);                                                                    // 673
-      self._modifyAndNotify(doc, mod, recomputeQids, queryResult.arrayIndices);                       // 674
-      ++updateCount;                                                                                  // 675
-      if (!options.multi)                                                                             // 676
-        return false;  // break                                                                       // 677
-    }                                                                                                 // 678
-    return true;                                                                                      // 679
-  });                                                                                                 // 680
-                                                                                                      // 681
-  _.each(recomputeQids, function (dummy, qid) {                                                       // 682
-    var query = self.queries[qid];                                                                    // 683
-    if (query)                                                                                        // 684
-      LocalCollection._recomputeResults(query,                                                        // 685
-                                        qidToOriginalResults[qid]);                                   // 686
-  });                                                                                                 // 687
-  self._observeQueue.drain();                                                                         // 688
-                                                                                                      // 689
-  // If we are doing an upsert, and we didn't modify any documents yet, then                          // 690
-  // it's time to do an insert. Figure out what document we are inserting, and                        // 691
-  // generate an id for it.                                                                           // 692
-  var insertedId;                                                                                     // 693
-  if (updateCount === 0 && options.upsert) {                                                          // 694
-    var newDoc = LocalCollection._removeDollarOperators(selector);                                    // 695
-    LocalCollection._modify(newDoc, mod, {isInsert: true});                                           // 696
-    if (! newDoc._id && options.insertedId)                                                           // 697
-      newDoc._id = options.insertedId;                                                                // 698
-    insertedId = self.insert(newDoc);                                                                 // 699
-    updateCount = 1;                                                                                  // 700
-  }                                                                                                   // 701
-                                                                                                      // 702
-  // Return the number of affected documents, or in the upsert case, an object                        // 703
-  // containing the number of affected docs and the id of the doc that was                            // 704
-  // inserted, if any.                                                                                // 705
-  var result;                                                                                         // 706
-  if (options._returnObject) {                                                                        // 707
-    result = {                                                                                        // 708
-      numberAffected: updateCount                                                                     // 709
-    };                                                                                                // 710
-    if (insertedId !== undefined)                                                                     // 711
-      result.insertedId = insertedId;                                                                 // 712
-  } else {                                                                                            // 713
-    result = updateCount;                                                                             // 714
-  }                                                                                                   // 715
+  // run live query callbacks _after_ we've removed the documents.                                    // 667
+  _.each(queryRemove, function (remove) {                                                             // 668
+    var query = self.queries[remove.qid];                                                             // 669
+    if (query) {                                                                                      // 670
+      query.distances && query.distances.remove(remove.doc._id);                                      // 671
+      LocalCollection._removeFromResults(query, remove.doc);                                          // 672
+    }                                                                                                 // 673
+  });                                                                                                 // 674
+  _.each(queriesToRecompute, function (qid) {                                                         // 675
+    var query = self.queries[qid];                                                                    // 676
+    if (query)                                                                                        // 677
+      LocalCollection._recomputeResults(query);                                                       // 678
+  });                                                                                                 // 679
+  self._observeQueue.drain();                                                                         // 680
+  result = remove.length;                                                                             // 681
+  if (callback)                                                                                       // 682
+    Meteor.defer(function () {                                                                        // 683
+      callback(null, result);                                                                         // 684
+    });                                                                                               // 685
+  return result;                                                                                      // 686
+};                                                                                                    // 687
+                                                                                                      // 688
+// XXX atomicity: if multi is true, and one modification fails, do                                    // 689
+// we rollback the whole operation, or what?                                                          // 690
+LocalCollection.prototype.update = function (selector, mod, options, callback) {                      // 691
+  var self = this;                                                                                    // 692
+  if (! callback && options instanceof Function) {                                                    // 693
+    callback = options;                                                                               // 694
+    options = null;                                                                                   // 695
+  }                                                                                                   // 696
+  if (!options) options = {};                                                                         // 697
+                                                                                                      // 698
+  var matcher = new Minimongo.Matcher(selector, self);                                                // 699
+                                                                                                      // 700
+  // Save the original results of any query that we might need to                                     // 701
+  // _recomputeResults on, because _modifyAndNotify will mutate the objects in                        // 702
+  // it. (We don't need to save the original results of paused queries because                        // 703
+  // they already have a resultsSnapshot and we won't be diffing in                                   // 704
+  // _recomputeResults.)                                                                              // 705
+  var qidToOriginalResults = {};                                                                      // 706
+  _.each(self.queries, function (query, qid) {                                                        // 707
+    // XXX for now, skip/limit implies ordered observe, so query.results is                           // 708
+    // always an array                                                                                // 709
+    if ((query.cursor.skip || query.cursor.limit) && !query.paused)                                   // 710
+      qidToOriginalResults[qid] = EJSON.clone(query.results);                                         // 711
+  });                                                                                                 // 712
+  var recomputeQids = {};                                                                             // 713
+                                                                                                      // 714
+  var updateCount = 0;                                                                                // 715
                                                                                                       // 716
-  if (callback)                                                                                       // 717
-    Meteor.defer(function () {                                                                        // 718
-      callback(null, result);                                                                         // 719
-    });                                                                                               // 720
-  return result;                                                                                      // 721
-};                                                                                                    // 722
-                                                                                                      // 723
-// A convenience wrapper on update. LocalCollection.upsert(sel, mod) is                               // 724
-// equivalent to LocalCollection.update(sel, mod, { upsert: true, _returnObject:                      // 725
-// true }).                                                                                           // 726
-LocalCollection.prototype.upsert = function (selector, mod, options, callback) {                      // 727
-  var self = this;                                                                                    // 728
-  if (! callback && typeof options === "function") {                                                  // 729
-    callback = options;                                                                               // 730
-    options = {};                                                                                     // 731
-  }                                                                                                   // 732
-  return self.update(selector, mod, _.extend({}, options, {                                           // 733
-    upsert: true,                                                                                     // 734
-    _returnObject: true                                                                               // 735
-  }), callback);                                                                                      // 736
-};                                                                                                    // 737
-                                                                                                      // 738
-LocalCollection.prototype._modifyAndNotify = function (                                               // 739
-    doc, mod, recomputeQids, arrayIndices) {                                                          // 740
-  var self = this;                                                                                    // 741
-                                                                                                      // 742
-  var matched_before = {};                                                                            // 743
-  for (var qid in self.queries) {                                                                     // 744
-    var query = self.queries[qid];                                                                    // 745
-    if (query.ordered) {                                                                              // 746
-      matched_before[qid] = query.matcher.documentMatches(doc).result;                                // 747
-    } else {                                                                                          // 748
-      // Because we don't support skip or limit (yet) in unordered queries, we                        // 749
-      // can just do a direct lookup.                                                                 // 750
-      matched_before[qid] = query.results.has(doc._id);                                               // 751
-    }                                                                                                 // 752
-  }                                                                                                   // 753
-                                                                                                      // 754
-  var old_doc = EJSON.clone(doc);                                                                     // 755
-                                                                                                      // 756
-  LocalCollection._modify(doc, mod, {arrayIndices: arrayIndices});                                    // 757
-                                                                                                      // 758
-  for (qid in self.queries) {                                                                         // 759
-    query = self.queries[qid];                                                                        // 760
-    var before = matched_before[qid];                                                                 // 761
-    var afterMatch = query.matcher.documentMatches(doc);                                              // 762
-    var after = afterMatch.result;                                                                    // 763
-    if (after && query.distances && afterMatch.distance !== undefined)                                // 764
-      query.distances.set(doc._id, afterMatch.distance);                                              // 765
-                                                                                                      // 766
-    if (query.cursor.skip || query.cursor.limit) {                                                    // 767
-      // We need to recompute any query where the doc may have been in the                            // 768
-      // cursor's window either before or after the update. (Note that if skip                        // 769
-      // or limit is set, "before" and "after" being true do not necessarily                          // 770
-      // mean that the document is in the cursor's output after skip/limit is                         // 771
-      // applied... but if they are false, then the document definitely is NOT                        // 772
-      // in the output. So it's safe to skip recompute if neither before or                           // 773
-      // after are true.)                                                                             // 774
-      if (before || after)                                                                            // 775
-        recomputeQids[qid] = true;                                                                    // 776
-    } else if (before && !after) {                                                                    // 777
-      LocalCollection._removeFromResults(query, doc);                                                 // 778
-    } else if (!before && after) {                                                                    // 779
-      LocalCollection._insertInResults(query, doc);                                                   // 780
-    } else if (before && after) {                                                                     // 781
-      LocalCollection._updateInResults(query, doc, old_doc);                                          // 782
-    }                                                                                                 // 783
-  }                                                                                                   // 784
+  self._eachPossiblyMatchingDoc(selector, function (doc, id) {                                        // 717
+    var queryResult = matcher.documentMatches(doc);                                                   // 718
+    if (queryResult.result) {                                                                         // 719
+      // XXX Should we save the original even if mod ends up being a no-op?                           // 720
+      self._saveOriginal(id, doc);                                                                    // 721
+      self._modifyAndNotify(doc, mod, recomputeQids, queryResult.arrayIndices);                       // 722
+      ++updateCount;                                                                                  // 723
+      if (!options.multi)                                                                             // 724
+        return false;  // break                                                                       // 725
+    }                                                                                                 // 726
+    return true;                                                                                      // 727
+  });                                                                                                 // 728
+                                                                                                      // 729
+  _.each(recomputeQids, function (dummy, qid) {                                                       // 730
+    var query = self.queries[qid];                                                                    // 731
+    if (query)                                                                                        // 732
+      LocalCollection._recomputeResults(query,                                                        // 733
+                                        qidToOriginalResults[qid]);                                   // 734
+  });                                                                                                 // 735
+  self._observeQueue.drain();                                                                         // 736
+                                                                                                      // 737
+  // If we are doing an upsert, and we didn't modify any documents yet, then                          // 738
+  // it's time to do an insert. Figure out what document we are inserting, and                        // 739
+  // generate an id for it.                                                                           // 740
+  var insertedId;                                                                                     // 741
+  if (updateCount === 0 && options.upsert) {                                                          // 742
+    var newDoc = LocalCollection._removeDollarOperators(selector);                                    // 743
+    LocalCollection._modify(newDoc, mod, {isInsert: true});                                           // 744
+    if (! newDoc._id && options.insertedId)                                                           // 745
+      newDoc._id = options.insertedId;                                                                // 746
+    insertedId = self.insert(newDoc);                                                                 // 747
+    updateCount = 1;                                                                                  // 748
+  }                                                                                                   // 749
+                                                                                                      // 750
+  // Return the number of affected documents, or in the upsert case, an object                        // 751
+  // containing the number of affected docs and the id of the doc that was                            // 752
+  // inserted, if any.                                                                                // 753
+  var result;                                                                                         // 754
+  if (options._returnObject) {                                                                        // 755
+    result = {                                                                                        // 756
+      numberAffected: updateCount                                                                     // 757
+    };                                                                                                // 758
+    if (insertedId !== undefined)                                                                     // 759
+      result.insertedId = insertedId;                                                                 // 760
+  } else {                                                                                            // 761
+    result = updateCount;                                                                             // 762
+  }                                                                                                   // 763
+                                                                                                      // 764
+  if (callback)                                                                                       // 765
+    Meteor.defer(function () {                                                                        // 766
+      callback(null, result);                                                                         // 767
+    });                                                                                               // 768
+  return result;                                                                                      // 769
+};                                                                                                    // 770
+                                                                                                      // 771
+// A convenience wrapper on update. LocalCollection.upsert(sel, mod) is                               // 772
+// equivalent to LocalCollection.update(sel, mod, { upsert: true, _returnObject:                      // 773
+// true }).                                                                                           // 774
+LocalCollection.prototype.upsert = function (selector, mod, options, callback) {                      // 775
+  var self = this;                                                                                    // 776
+  if (! callback && typeof options === "function") {                                                  // 777
+    callback = options;                                                                               // 778
+    options = {};                                                                                     // 779
+  }                                                                                                   // 780
+  return self.update(selector, mod, _.extend({}, options, {                                           // 781
+    upsert: true,                                                                                     // 782
+    _returnObject: true                                                                               // 783
+  }), callback);                                                                                      // 784
 };                                                                                                    // 785
                                                                                                       // 786
-// XXX the sorted-query logic below is laughably inefficient. we'll                                   // 787
-// need to come up with a better datastructure for this.                                              // 788
-//                                                                                                    // 789
-// XXX the logic for observing with a skip or a limit is even more                                    // 790
-// laughably inefficient. we recompute the whole results every time!                                  // 791
-                                                                                                      // 792
-LocalCollection._insertInResults = function (query, doc) {                                            // 793
-  var fields = EJSON.clone(doc);                                                                      // 794
-  delete fields._id;                                                                                  // 795
-  if (query.ordered) {                                                                                // 796
-    if (!query.sorter) {                                                                              // 797
-      query.addedBefore(doc._id, fields, null);                                                       // 798
-      query.results.push(doc);                                                                        // 799
-    } else {                                                                                          // 800
-      var i = LocalCollection._insertInSortedList(                                                    // 801
-        query.sorter.getComparator({distances: query.distances}),                                     // 802
-        query.results, doc);                                                                          // 803
-      var next = query.results[i+1];                                                                  // 804
-      if (next)                                                                                       // 805
-        next = next._id;                                                                              // 806
-      else                                                                                            // 807
-        next = null;                                                                                  // 808
-      query.addedBefore(doc._id, fields, next);                                                       // 809
-    }                                                                                                 // 810
-    query.added(doc._id, fields);                                                                     // 811
-  } else {                                                                                            // 812
-    query.added(doc._id, fields);                                                                     // 813
-    query.results.set(doc._id, doc);                                                                  // 814
-  }                                                                                                   // 815
-};                                                                                                    // 816
-                                                                                                      // 817
-LocalCollection._removeFromResults = function (query, doc) {                                          // 818
-  if (query.ordered) {                                                                                // 819
-    var i = LocalCollection._findInOrderedResults(query, doc);                                        // 820
-    query.removed(doc._id);                                                                           // 821
-    query.results.splice(i, 1);                                                                       // 822
-  } else {                                                                                            // 823
-    var id = doc._id;  // in case callback mutates doc                                                // 824
-    query.removed(doc._id);                                                                           // 825
-    query.results.remove(id);                                                                         // 826
-  }                                                                                                   // 827
-};                                                                                                    // 828
-                                                                                                      // 829
-LocalCollection._updateInResults = function (query, doc, old_doc) {                                   // 830
-  if (!EJSON.equals(doc._id, old_doc._id))                                                            // 831
-    throw new Error("Can't change a doc's _id while updating");                                       // 832
-  var changedFields = LocalCollection._makeChangedFields(doc, old_doc);                               // 833
-  if (!query.ordered) {                                                                               // 834
-    if (!_.isEmpty(changedFields)) {                                                                  // 835
-      query.changed(doc._id, changedFields);                                                          // 836
-      query.results.set(doc._id, doc);                                                                // 837
-    }                                                                                                 // 838
-    return;                                                                                           // 839
-  }                                                                                                   // 840
-                                                                                                      // 841
-  var orig_idx = LocalCollection._findInOrderedResults(query, doc);                                   // 842
-                                                                                                      // 843
-  if (!_.isEmpty(changedFields))                                                                      // 844
-    query.changed(doc._id, changedFields);                                                            // 845
-  if (!query.sorter)                                                                                  // 846
-    return;                                                                                           // 847
-                                                                                                      // 848
-  // just take it out and put it back in again, and see if the index                                  // 849
-  // changes                                                                                          // 850
-  query.results.splice(orig_idx, 1);                                                                  // 851
-  var new_idx = LocalCollection._insertInSortedList(                                                  // 852
-    query.sorter.getComparator({distances: query.distances}),                                         // 853
-    query.results, doc);                                                                              // 854
-  if (orig_idx !== new_idx) {                                                                         // 855
-    var next = query.results[new_idx+1];                                                              // 856
-    if (next)                                                                                         // 857
-      next = next._id;                                                                                // 858
-    else                                                                                              // 859
-      next = null;                                                                                    // 860
-    query.movedBefore && query.movedBefore(doc._id, next);                                            // 861
-  }                                                                                                   // 862
-};                                                                                                    // 863
-                                                                                                      // 864
-// Recomputes the results of a query and runs observe callbacks for the                               // 865
-// difference between the previous results and the current results (unless                            // 866
-// paused). Used for skip/limit queries.                                                              // 867
-//                                                                                                    // 868
-// When this is used by insert or remove, it can just use query.results for the                       // 869
-// old results (and there's no need to pass in oldResults), because these                             // 870
-// operations don't mutate the documents in the collection. Update needs to pass                      // 871
-// in an oldResults which was deep-copied before the modifier was applied.                            // 872
-LocalCollection._recomputeResults = function (query, oldResults) {                                    // 873
-  if (!oldResults)                                                                                    // 874
-    oldResults = query.results;                                                                       // 875
-  if (query.distances)                                                                                // 876
-    query.distances.clear();                                                                          // 877
-  query.results = query.cursor._getRawObjects({                                                       // 878
-    ordered: query.ordered, distances: query.distances});                                             // 879
-                                                                                                      // 880
-  if (!query.paused) {                                                                                // 881
-    LocalCollection._diffQueryChanges(                                                                // 882
-      query.ordered, oldResults, query.results, query);                                               // 883
-  }                                                                                                   // 884
-};                                                                                                    // 885
-                                                                                                      // 886
-                                                                                                      // 887
-LocalCollection._findInOrderedResults = function (query, doc) {                                       // 888
-  if (!query.ordered)                                                                                 // 889
-    throw new Error("Can't call _findInOrderedResults on unordered query");                           // 890
-  for (var i = 0; i < query.results.length; i++)                                                      // 891
-    if (query.results[i] === doc)                                                                     // 892
-      return i;                                                                                       // 893
-  throw Error("object missing from query");                                                           // 894
-};                                                                                                    // 895
+LocalCollection.prototype._modifyAndNotify = function (                                               // 787
+    doc, mod, recomputeQids, arrayIndices) {                                                          // 788
+  var self = this;                                                                                    // 789
+                                                                                                      // 790
+  var matched_before = {};                                                                            // 791
+  for (var qid in self.queries) {                                                                     // 792
+    var query = self.queries[qid];                                                                    // 793
+    if (query.ordered) {                                                                              // 794
+      matched_before[qid] = query.matcher.documentMatches(doc).result;                                // 795
+    } else {                                                                                          // 796
+      // Because we don't support skip or limit (yet) in unordered queries, we                        // 797
+      // can just do a direct lookup.                                                                 // 798
+      matched_before[qid] = query.results.has(doc._id);                                               // 799
+    }                                                                                                 // 800
+  }                                                                                                   // 801
+                                                                                                      // 802
+  var old_doc = EJSON.clone(doc);                                                                     // 803
+                                                                                                      // 804
+  LocalCollection._modify(doc, mod, {arrayIndices: arrayIndices});                                    // 805
+                                                                                                      // 806
+  for (qid in self.queries) {                                                                         // 807
+    query = self.queries[qid];                                                                        // 808
+    var before = matched_before[qid];                                                                 // 809
+    var afterMatch = query.matcher.documentMatches(doc);                                              // 810
+    var after = afterMatch.result;                                                                    // 811
+    if (after && query.distances && afterMatch.distance !== undefined)                                // 812
+      query.distances.set(doc._id, afterMatch.distance);                                              // 813
+                                                                                                      // 814
+    if (query.cursor.skip || query.cursor.limit) {                                                    // 815
+      // We need to recompute any query where the doc may have been in the                            // 816
+      // cursor's window either before or after the update. (Note that if skip                        // 817
+      // or limit is set, "before" and "after" being true do not necessarily                          // 818
+      // mean that the document is in the cursor's output after skip/limit is                         // 819
+      // applied... but if they are false, then the document definitely is NOT                        // 820
+      // in the output. So it's safe to skip recompute if neither before or                           // 821
+      // after are true.)                                                                             // 822
+      if (before || after)                                                                            // 823
+        recomputeQids[qid] = true;                                                                    // 824
+    } else if (before && !after) {                                                                    // 825
+      LocalCollection._removeFromResults(query, doc);                                                 // 826
+    } else if (!before && after) {                                                                    // 827
+      LocalCollection._insertInResults(query, doc);                                                   // 828
+    } else if (before && after) {                                                                     // 829
+      LocalCollection._updateInResults(query, doc, old_doc);                                          // 830
+    }                                                                                                 // 831
+  }                                                                                                   // 832
+};                                                                                                    // 833
+                                                                                                      // 834
+// XXX the sorted-query logic below is laughably inefficient. we'll                                   // 835
+// need to come up with a better datastructure for this.                                              // 836
+//                                                                                                    // 837
+// XXX the logic for observing with a skip or a limit is even more                                    // 838
+// laughably inefficient. we recompute the whole results every time!                                  // 839
+                                                                                                      // 840
+LocalCollection._insertInResults = function (query, doc) {                                            // 841
+  var fields = EJSON.clone(doc);                                                                      // 842
+  delete fields._id;                                                                                  // 843
+  if (query.ordered) {                                                                                // 844
+    if (!query.sorter) {                                                                              // 845
+      query.addedBefore(doc._id, fields, null);                                                       // 846
+      query.results.push(doc);                                                                        // 847
+    } else {                                                                                          // 848
+      var i = LocalCollection._insertInSortedList(                                                    // 849
+        query.sorter.getComparator({distances: query.distances}),                                     // 850
+        query.results, doc);                                                                          // 851
+      var next = query.results[i+1];                                                                  // 852
+      if (next)                                                                                       // 853
+        next = next._id;                                                                              // 854
+      else                                                                                            // 855
+        next = null;                                                                                  // 856
+      query.addedBefore(doc._id, fields, next);                                                       // 857
+    }                                                                                                 // 858
+    query.added(doc._id, fields);                                                                     // 859
+  } else {                                                                                            // 860
+    query.added(doc._id, fields);                                                                     // 861
+    query.results.set(doc._id, doc);                                                                  // 862
+  }                                                                                                   // 863
+};                                                                                                    // 864
+                                                                                                      // 865
+LocalCollection._removeFromResults = function (query, doc) {                                          // 866
+  if (query.ordered) {                                                                                // 867
+    var i = LocalCollection._findInOrderedResults(query, doc);                                        // 868
+    query.removed(doc._id);                                                                           // 869
+    query.results.splice(i, 1);                                                                       // 870
+  } else {                                                                                            // 871
+    var id = doc._id;  // in case callback mutates doc                                                // 872
+    query.removed(doc._id);                                                                           // 873
+    query.results.remove(id);                                                                         // 874
+  }                                                                                                   // 875
+};                                                                                                    // 876
+                                                                                                      // 877
+LocalCollection._updateInResults = function (query, doc, old_doc) {                                   // 878
+  if (!EJSON.equals(doc._id, old_doc._id))                                                            // 879
+    throw new Error("Can't change a doc's _id while updating");                                       // 880
+  var changedFields = LocalCollection._makeChangedFields(doc, old_doc);                               // 881
+  if (!query.ordered) {                                                                               // 882
+    if (!_.isEmpty(changedFields)) {                                                                  // 883
+      query.changed(doc._id, changedFields);                                                          // 884
+      query.results.set(doc._id, doc);                                                                // 885
+    }                                                                                                 // 886
+    return;                                                                                           // 887
+  }                                                                                                   // 888
+                                                                                                      // 889
+  var orig_idx = LocalCollection._findInOrderedResults(query, doc);                                   // 890
+                                                                                                      // 891
+  if (!_.isEmpty(changedFields))                                                                      // 892
+    query.changed(doc._id, changedFields);                                                            // 893
+  if (!query.sorter)                                                                                  // 894
+    return;                                                                                           // 895
                                                                                                       // 896
-// This binary search puts a value between any equal values, and the first                            // 897
-// lesser value.                                                                                      // 898
-LocalCollection._binarySearch = function (cmp, array, value) {                                        // 899
-  var first = 0, rangeLength = array.length;                                                          // 900
-                                                                                                      // 901
-  while (rangeLength > 0) {                                                                           // 902
-    var halfRange = Math.floor(rangeLength/2);                                                        // 903
-    if (cmp(value, array[first + halfRange]) >= 0) {                                                  // 904
-      first += halfRange + 1;                                                                         // 905
-      rangeLength -= halfRange + 1;                                                                   // 906
-    } else {                                                                                          // 907
-      rangeLength = halfRange;                                                                        // 908
-    }                                                                                                 // 909
+  // just take it out and put it back in again, and see if the index                                  // 897
+  // changes                                                                                          // 898
+  query.results.splice(orig_idx, 1);                                                                  // 899
+  var new_idx = LocalCollection._insertInSortedList(                                                  // 900
+    query.sorter.getComparator({distances: query.distances}),                                         // 901
+    query.results, doc);                                                                              // 902
+  if (orig_idx !== new_idx) {                                                                         // 903
+    var next = query.results[new_idx+1];                                                              // 904
+    if (next)                                                                                         // 905
+      next = next._id;                                                                                // 906
+    else                                                                                              // 907
+      next = null;                                                                                    // 908
+    query.movedBefore && query.movedBefore(doc._id, next);                                            // 909
   }                                                                                                   // 910
-  return first;                                                                                       // 911
-};                                                                                                    // 912
-                                                                                                      // 913
-LocalCollection._insertInSortedList = function (cmp, array, value) {                                  // 914
-  if (array.length === 0) {                                                                           // 915
-    array.push(value);                                                                                // 916
-    return 0;                                                                                         // 917
-  }                                                                                                   // 918
-                                                                                                      // 919
-  var idx = LocalCollection._binarySearch(cmp, array, value);                                         // 920
-  array.splice(idx, 0, value);                                                                        // 921
-  return idx;                                                                                         // 922
-};                                                                                                    // 923
-                                                                                                      // 924
-// To track what documents are affected by a piece of code, call saveOriginals()                      // 925
-// before it and retrieveOriginals() after it. retrieveOriginals returns an                           // 926
-// object whose keys are the ids of the documents that were affected since the                        // 927
-// call to saveOriginals(), and the values are equal to the document's contents                       // 928
-// at the time of saveOriginals. (In the case of an inserted document, undefined                      // 929
-// is the value.) You must alternate between calls to saveOriginals() and                             // 930
-// retrieveOriginals().                                                                               // 931
-LocalCollection.prototype.saveOriginals = function () {                                               // 932
-  var self = this;                                                                                    // 933
-  if (self._savedOriginals)                                                                           // 934
-    throw new Error("Called saveOriginals twice without retrieveOriginals");                          // 935
-  self._savedOriginals = new LocalCollection._IdMap;                                                  // 936
-};                                                                                                    // 937
-LocalCollection.prototype.retrieveOriginals = function () {                                           // 938
-  var self = this;                                                                                    // 939
-  if (!self._savedOriginals)                                                                          // 940
-    throw new Error("Called retrieveOriginals without saveOriginals");                                // 941
-                                                                                                      // 942
-  var originals = self._savedOriginals;                                                               // 943
-  self._savedOriginals = null;                                                                        // 944
-  return originals;                                                                                   // 945
-};                                                                                                    // 946
-                                                                                                      // 947
-LocalCollection.prototype._saveOriginal = function (id, doc) {                                        // 948
-  var self = this;                                                                                    // 949
-  // Are we even trying to save originals?                                                            // 950
-  if (!self._savedOriginals)                                                                          // 951
-    return;                                                                                           // 952
-  // Have we previously mutated the original (and so 'doc' is not actually                            // 953
-  // original)?  (Note the 'has' check rather than truth: we store undefined                          // 954
-  // here for inserted docs!)                                                                         // 955
-  if (self._savedOriginals.has(id))                                                                   // 956
-    return;                                                                                           // 957
-  self._savedOriginals.set(id, EJSON.clone(doc));                                                     // 958
-};                                                                                                    // 959
-                                                                                                      // 960
-// Pause the observers. No callbacks from observers will fire until                                   // 961
-// 'resumeObservers' is called.                                                                       // 962
-LocalCollection.prototype.pauseObservers = function () {                                              // 963
-  // No-op if already paused.                                                                         // 964
-  if (this.paused)                                                                                    // 965
-    return;                                                                                           // 966
+};                                                                                                    // 911
+                                                                                                      // 912
+// Recomputes the results of a query and runs observe callbacks for the                               // 913
+// difference between the previous results and the current results (unless                            // 914
+// paused). Used for skip/limit queries.                                                              // 915
+//                                                                                                    // 916
+// When this is used by insert or remove, it can just use query.results for the                       // 917
+// old results (and there's no need to pass in oldResults), because these                             // 918
+// operations don't mutate the documents in the collection. Update needs to pass                      // 919
+// in an oldResults which was deep-copied before the modifier was applied.                            // 920
+LocalCollection._recomputeResults = function (query, oldResults) {                                    // 921
+  if (!oldResults)                                                                                    // 922
+    oldResults = query.results;                                                                       // 923
+  if (query.distances)                                                                                // 924
+    query.distances.clear();                                                                          // 925
+  query.results = query.cursor._getRawObjects({                                                       // 926
+    ordered: query.ordered, distances: query.distances});                                             // 927
+                                                                                                      // 928
+  if (!query.paused) {                                                                                // 929
+    LocalCollection._diffQueryChanges(                                                                // 930
+      query.ordered, oldResults, query.results, query);                                               // 931
+  }                                                                                                   // 932
+};                                                                                                    // 933
+                                                                                                      // 934
+                                                                                                      // 935
+LocalCollection._findInOrderedResults = function (query, doc) {                                       // 936
+  if (!query.ordered)                                                                                 // 937
+    throw new Error("Can't call _findInOrderedResults on unordered query");                           // 938
+  for (var i = 0; i < query.results.length; i++)                                                      // 939
+    if (query.results[i] === doc)                                                                     // 940
+      return i;                                                                                       // 941
+  throw Error("object missing from query");                                                           // 942
+};                                                                                                    // 943
+                                                                                                      // 944
+// This binary search puts a value between any equal values, and the first                            // 945
+// lesser value.                                                                                      // 946
+LocalCollection._binarySearch = function (cmp, array, value) {                                        // 947
+  var first = 0, rangeLength = array.length;                                                          // 948
+                                                                                                      // 949
+  while (rangeLength > 0) {                                                                           // 950
+    var halfRange = Math.floor(rangeLength/2);                                                        // 951
+    if (cmp(value, array[first + halfRange]) >= 0) {                                                  // 952
+      first += halfRange + 1;                                                                         // 953
+      rangeLength -= halfRange + 1;                                                                   // 954
+    } else {                                                                                          // 955
+      rangeLength = halfRange;                                                                        // 956
+    }                                                                                                 // 957
+  }                                                                                                   // 958
+  return first;                                                                                       // 959
+};                                                                                                    // 960
+                                                                                                      // 961
+LocalCollection._insertInSortedList = function (cmp, array, value) {                                  // 962
+  if (array.length === 0) {                                                                           // 963
+    array.push(value);                                                                                // 964
+    return 0;                                                                                         // 965
+  }                                                                                                   // 966
                                                                                                       // 967
-  // Set the 'paused' flag such that new observer messages don't fire.                                // 968
-  this.paused = true;                                                                                 // 969
-                                                                                                      // 970
-  // Take a snapshot of the query results for each query.                                             // 971
-  for (var qid in this.queries) {                                                                     // 972
-    var query = this.queries[qid];                                                                    // 973
-                                                                                                      // 974
-    query.resultsSnapshot = EJSON.clone(query.results);                                               // 975
-  }                                                                                                   // 976
-};                                                                                                    // 977
-                                                                                                      // 978
-// Resume the observers. Observers immediately receive change                                         // 979
-// notifications to bring them to the current state of the                                            // 980
-// database. Note that this is not just replaying all the changes that                                // 981
-// happened during the pause, it is a smarter 'coalesced' diff.                                       // 982
-LocalCollection.prototype.resumeObservers = function () {                                             // 983
-  var self = this;                                                                                    // 984
-  // No-op if not paused.                                                                             // 985
-  if (!this.paused)                                                                                   // 986
-    return;                                                                                           // 987
-                                                                                                      // 988
-  // Unset the 'paused' flag. Make sure to do this first, otherwise                                   // 989
-  // observer methods won't actually fire when we trigger them.                                       // 990
-  this.paused = false;                                                                                // 991
-                                                                                                      // 992
-  for (var qid in this.queries) {                                                                     // 993
-    var query = self.queries[qid];                                                                    // 994
-    // Diff the current results against the snapshot and send to observers.                           // 995
-    // pass the query object for its observer callbacks.                                              // 996
-    LocalCollection._diffQueryChanges(                                                                // 997
-      query.ordered, query.resultsSnapshot, query.results, query);                                    // 998
-    query.resultsSnapshot = null;                                                                     // 999
-  }                                                                                                   // 1000
-  self._observeQueue.drain();                                                                         // 1001
-};                                                                                                    // 1002
-                                                                                                      // 1003
-                                                                                                      // 1004
-// NB: used by livedata                                                                               // 1005
-LocalCollection._idStringify = function (id) {                                                        // 1006
-  if (id instanceof LocalCollection._ObjectID) {                                                      // 1007
-    return id.valueOf();                                                                              // 1008
-  } else if (typeof id === 'string') {                                                                // 1009
-    if (id === "") {                                                                                  // 1010
-      return id;                                                                                      // 1011
-    } else if (id.substr(0, 1) === "-" || // escape previously dashed strings                         // 1012
-               id.substr(0, 1) === "~" || // escape escaped numbers, true, false                      // 1013
-               LocalCollection._looksLikeObjectID(id) || // escape object-id-form strings             // 1014
-               id.substr(0, 1) === '{') { // escape object-form strings, for maybe implementing later // 1015
-      return "-" + id;                                                                                // 1016
-    } else {                                                                                          // 1017
-      return id; // other strings go through unchanged.                                               // 1018
-    }                                                                                                 // 1019
-  } else if (id === undefined) {                                                                      // 1020
-    return '-';                                                                                       // 1021
-  } else if (typeof id === 'object' && id !== null) {                                                 // 1022
-    throw new Error("Meteor does not currently support objects other than ObjectID as ids");          // 1023
-  } else { // Numbers, true, false, null                                                              // 1024
-    return "~" + JSON.stringify(id);                                                                  // 1025
-  }                                                                                                   // 1026
-};                                                                                                    // 1027
-                                                                                                      // 1028
-                                                                                                      // 1029
-// NB: used by livedata                                                                               // 1030
-LocalCollection._idParse = function (id) {                                                            // 1031
-  if (id === "") {                                                                                    // 1032
-    return id;                                                                                        // 1033
-  } else if (id === '-') {                                                                            // 1034
-    return undefined;                                                                                 // 1035
-  } else if (id.substr(0, 1) === '-') {                                                               // 1036
-    return id.substr(1);                                                                              // 1037
-  } else if (id.substr(0, 1) === '~') {                                                               // 1038
-    return JSON.parse(id.substr(1));                                                                  // 1039
-  } else if (LocalCollection._looksLikeObjectID(id)) {                                                // 1040
-    return new LocalCollection._ObjectID(id);                                                         // 1041
-  } else {                                                                                            // 1042
-    return id;                                                                                        // 1043
-  }                                                                                                   // 1044
-};                                                                                                    // 1045
-                                                                                                      // 1046
-LocalCollection._makeChangedFields = function (newDoc, oldDoc) {                                      // 1047
-  var fields = {};                                                                                    // 1048
-  LocalCollection._diffObjects(oldDoc, newDoc, {                                                      // 1049
-    leftOnly: function (key, value) {                                                                 // 1050
-      fields[key] = undefined;                                                                        // 1051
-    },                                                                                                // 1052
-    rightOnly: function (key, value) {                                                                // 1053
-      fields[key] = value;                                                                            // 1054
-    },                                                                                                // 1055
-    both: function (key, leftValue, rightValue) {                                                     // 1056
-      if (!EJSON.equals(leftValue, rightValue))                                                       // 1057
-        fields[key] = rightValue;                                                                     // 1058
-    }                                                                                                 // 1059
-  });                                                                                                 // 1060
-  return fields;                                                                                      // 1061
-};                                                                                                    // 1062
-                                                                                                      // 1063
+  var idx = LocalCollection._binarySearch(cmp, array, value);                                         // 968
+  array.splice(idx, 0, value);                                                                        // 969
+  return idx;                                                                                         // 970
+};                                                                                                    // 971
+                                                                                                      // 972
+// To track what documents are affected by a piece of code, call saveOriginals()                      // 973
+// before it and retrieveOriginals() after it. retrieveOriginals returns an                           // 974
+// object whose keys are the ids of the documents that were affected since the                        // 975
+// call to saveOriginals(), and the values are equal to the document's contents                       // 976
+// at the time of saveOriginals. (In the case of an inserted document, undefined                      // 977
+// is the value.) You must alternate between calls to saveOriginals() and                             // 978
+// retrieveOriginals().                                                                               // 979
+LocalCollection.prototype.saveOriginals = function () {                                               // 980
+  var self = this;                                                                                    // 981
+  if (self._savedOriginals)                                                                           // 982
+    throw new Error("Called saveOriginals twice without retrieveOriginals");                          // 983
+  self._savedOriginals = new LocalCollection._IdMap;                                                  // 984
+};                                                                                                    // 985
+LocalCollection.prototype.retrieveOriginals = function () {                                           // 986
+  var self = this;                                                                                    // 987
+  if (!self._savedOriginals)                                                                          // 988
+    throw new Error("Called retrieveOriginals without saveOriginals");                                // 989
+                                                                                                      // 990
+  var originals = self._savedOriginals;                                                               // 991
+  self._savedOriginals = null;                                                                        // 992
+  return originals;                                                                                   // 993
+};                                                                                                    // 994
+                                                                                                      // 995
+LocalCollection.prototype._saveOriginal = function (id, doc) {                                        // 996
+  var self = this;                                                                                    // 997
+  // Are we even trying to save originals?                                                            // 998
+  if (!self._savedOriginals)                                                                          // 999
+    return;                                                                                           // 1000
+  // Have we previously mutated the original (and so 'doc' is not actually                            // 1001
+  // original)?  (Note the 'has' check rather than truth: we store undefined                          // 1002
+  // here for inserted docs!)                                                                         // 1003
+  if (self._savedOriginals.has(id))                                                                   // 1004
+    return;                                                                                           // 1005
+  self._savedOriginals.set(id, EJSON.clone(doc));                                                     // 1006
+};                                                                                                    // 1007
+                                                                                                      // 1008
+// Pause the observers. No callbacks from observers will fire until                                   // 1009
+// 'resumeObservers' is called.                                                                       // 1010
+LocalCollection.prototype.pauseObservers = function () {                                              // 1011
+  // No-op if already paused.                                                                         // 1012
+  if (this.paused)                                                                                    // 1013
+    return;                                                                                           // 1014
+                                                                                                      // 1015
+  // Set the 'paused' flag such that new observer messages don't fire.                                // 1016
+  this.paused = true;                                                                                 // 1017
+                                                                                                      // 1018
+  // Take a snapshot of the query results for each query.                                             // 1019
+  for (var qid in this.queries) {                                                                     // 1020
+    var query = this.queries[qid];                                                                    // 1021
+                                                                                                      // 1022
+    query.resultsSnapshot = EJSON.clone(query.results);                                               // 1023
+  }                                                                                                   // 1024
+};                                                                                                    // 1025
+                                                                                                      // 1026
+// Resume the observers. Observers immediately receive change                                         // 1027
+// notifications to bring them to the current state of the                                            // 1028
+// database. Note that this is not just replaying all the changes that                                // 1029
+// happened during the pause, it is a smarter 'coalesced' diff.                                       // 1030
+LocalCollection.prototype.resumeObservers = function () {                                             // 1031
+  var self = this;                                                                                    // 1032
+  // No-op if not paused.                                                                             // 1033
+  if (!this.paused)                                                                                   // 1034
+    return;                                                                                           // 1035
+                                                                                                      // 1036
+  // Unset the 'paused' flag. Make sure to do this first, otherwise                                   // 1037
+  // observer methods won't actually fire when we trigger them.                                       // 1038
+  this.paused = false;                                                                                // 1039
+                                                                                                      // 1040
+  for (var qid in this.queries) {                                                                     // 1041
+    var query = self.queries[qid];                                                                    // 1042
+    // Diff the current results against the snapshot and send to observers.                           // 1043
+    // pass the query object for its observer callbacks.                                              // 1044
+    LocalCollection._diffQueryChanges(                                                                // 1045
+      query.ordered, query.resultsSnapshot, query.results, query);                                    // 1046
+    query.resultsSnapshot = null;                                                                     // 1047
+  }                                                                                                   // 1048
+  self._observeQueue.drain();                                                                         // 1049
+};                                                                                                    // 1050
+                                                                                                      // 1051
+                                                                                                      // 1052
+// NB: used by livedata                                                                               // 1053
+LocalCollection._idStringify = function (id) {                                                        // 1054
+  if (id instanceof LocalCollection._ObjectID) {                                                      // 1055
+    return id.valueOf();                                                                              // 1056
+  } else if (typeof id === 'string') {                                                                // 1057
+    if (id === "") {                                                                                  // 1058
+      return id;                                                                                      // 1059
+    } else if (id.substr(0, 1) === "-" || // escape previously dashed strings                         // 1060
+               id.substr(0, 1) === "~" || // escape escaped numbers, true, false                      // 1061
+               LocalCollection._looksLikeObjectID(id) || // escape object-id-form strings             // 1062
+               id.substr(0, 1) === '{') { // escape object-form strings, for maybe implementing later // 1063
+      return "-" + id;                                                                                // 1064
+    } else {                                                                                          // 1065
+      return id; // other strings go through unchanged.                                               // 1066
+    }                                                                                                 // 1067
+  } else if (id === undefined) {                                                                      // 1068
+    return '-';                                                                                       // 1069
+  } else if (typeof id === 'object' && id !== null) {                                                 // 1070
+    throw new Error("Meteor does not currently support objects other than ObjectID as ids");          // 1071
+  } else { // Numbers, true, false, null                                                              // 1072
+    return "~" + JSON.stringify(id);                                                                  // 1073
+  }                                                                                                   // 1074
+};                                                                                                    // 1075
+                                                                                                      // 1076
+                                                                                                      // 1077
+// NB: used by livedata                                                                               // 1078
+LocalCollection._idParse = function (id) {                                                            // 1079
+  if (id === "") {                                                                                    // 1080
+    return id;                                                                                        // 1081
+  } else if (id === '-') {                                                                            // 1082
+    return undefined;                                                                                 // 1083
+  } else if (id.substr(0, 1) === '-') {                                                               // 1084
+    return id.substr(1);                                                                              // 1085
+  } else if (id.substr(0, 1) === '~') {                                                               // 1086
+    return JSON.parse(id.substr(1));                                                                  // 1087
+  } else if (LocalCollection._looksLikeObjectID(id)) {                                                // 1088
+    return new LocalCollection._ObjectID(id);                                                         // 1089
+  } else {                                                                                            // 1090
+    return id;                                                                                        // 1091
+  }                                                                                                   // 1092
+};                                                                                                    // 1093
+                                                                                                      // 1094
+LocalCollection._makeChangedFields = function (newDoc, oldDoc) {                                      // 1095
+  var fields = {};                                                                                    // 1096
+  LocalCollection._diffObjects(oldDoc, newDoc, {                                                      // 1097
+    leftOnly: function (key, value) {                                                                 // 1098
+      fields[key] = undefined;                                                                        // 1099
+    },                                                                                                // 1100
+    rightOnly: function (key, value) {                                                                // 1101
+      fields[key] = value;                                                                            // 1102
+    },                                                                                                // 1103
+    both: function (key, leftValue, rightValue) {                                                     // 1104
+      if (!EJSON.equals(leftValue, rightValue))                                                       // 1105
+        fields[key] = rightValue;                                                                     // 1106
+    }                                                                                                 // 1107
+  });                                                                                                 // 1108
+  return fields;                                                                                      // 1109
+};                                                                                                    // 1110
+                                                                                                      // 1111
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }).call(this);
@@ -1140,8 +1189,8 @@ LocalCollection.wrapTransform = function (transform) {                          
     }                                                                                                 // 19
                                                                                                       // 20
     var id = doc._id;                                                                                 // 21
-    // XXX consider making deps a weak dependency and checking Package.deps here                      // 22
-    var transformed = Deps.nonreactive(function () {                                                  // 23
+    // XXX consider making tracker a weak dependency and checking Package.tracker here                // 22
+    var transformed = Tracker.nonreactive(function () {                                               // 23
       return transform(doc);                                                                          // 24
     });                                                                                               // 25
                                                                                                       // 26
@@ -1160,7 +1209,6 @@ LocalCollection.wrapTransform = function (transform) {                          
   };                                                                                                  // 39
 };                                                                                                    // 40
                                                                                                       // 41
-                                                                                                      // 42
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }).call(this);
@@ -1891,7 +1939,7 @@ ELEMENT_OPERATORS = {                                                           
       if (valueSelector.$options !== undefined) {                                                     // 648
         // Options passed in $options (even the empty string) always overrides                        // 649
         // options in the RegExp object itself. (See also                                             // 650
-        // Meteor.Collection._rewriteSelector.)                                                       // 651
+        // Mongo.Collection._rewriteSelector.)                                                        // 651
                                                                                                       // 652
         // Be clear that we only support the JS-supported options, not extended                       // 653
         // ones (eg, Mongo supports x and s). Ideally we would implement x and s                      // 654
@@ -4001,4 +4049,4 @@ Package.minimongo = {
 
 })();
 
-//# sourceMappingURL=137c6a8ebec6307fc667e2baa8fd3ebdfe688233.map
+//# sourceMappingURL=193ab5ec9827e1f18e82308fb0a6c4a6c2f12e55.map

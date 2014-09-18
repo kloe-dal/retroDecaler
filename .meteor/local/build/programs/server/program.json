@@ -13,6 +13,31 @@
       "path": "packages/meteor.js"
     },
     {
+      "sourceMap": "packages/standard-app-packages.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/standard-app-packages.js"
+    },
+    {
+      "sourceMap": "packages/insecure.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/insecure.js"
+    },
+    {
+      "sourceMap": "packages/less.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/less.js"
+    },
+    {
+      "sourceMap": "packages/jquery.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/jquery.js"
+    },
+    {
+      "sourceMap": "packages/mizzao:bootstrap-3.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/mizzao:bootstrap-3.js"
+    },
+    {
       "sourceMap": "packages/reload.js.map",
       "sourceMapRoot": "packages",
       "path": "packages/reload.js"
@@ -65,19 +90,14 @@
       "path": "packages/spacebars-compiler.js"
     },
     {
-      "sourceMap": "packages/jquery.js.map",
+      "sourceMap": "packages/tracker.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/jquery.js"
+      "path": "packages/tracker.js"
     },
     {
-      "sourceMap": "packages/deps.js.map",
+      "sourceMap": "packages/id-map.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/deps.js"
-    },
-    {
-      "sourceMap": "packages/random.js.map",
-      "sourceMapRoot": "packages",
-      "path": "packages/random.js"
+      "path": "packages/id-map.js"
     },
     {
       "sourceMap": "packages/ordered-dict.js.map",
@@ -85,9 +105,9 @@
       "path": "packages/ordered-dict.js"
     },
     {
-      "sourceMap": "packages/id-map.js.map",
+      "sourceMap": "packages/random.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/id-map.js"
+      "path": "packages/random.js"
     },
     {
       "sourceMap": "packages/geojson-utils.js.map",
@@ -105,14 +125,14 @@
       "path": "packages/observe-sequence.js"
     },
     {
+      "sourceMap": "packages/reactive-var.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/reactive-var.js"
+    },
+    {
       "sourceMap": "packages/blaze.js.map",
       "sourceMapRoot": "packages",
       "path": "packages/blaze.js"
-    },
-    {
-      "sourceMap": "packages/ui.js.map",
-      "sourceMapRoot": "packages",
-      "path": "packages/ui.js"
     },
     {
       "sourceMap": "packages/templating.js.map",
@@ -144,20 +164,15 @@
       "path": "packages/retry.js"
     },
     {
-      "sourceMap": "packages/autopublish.js.map",
-      "sourceMapRoot": "packages",
-      "path": "packages/autopublish.js"
-    },
-    {
       "sourceMap": "packages/callback-hook.js.map",
       "sourceMapRoot": "packages",
       "path": "packages/callback-hook.js"
     },
     {
-      "node_modules": "npm/livedata/node_modules",
-      "sourceMap": "packages/livedata.js.map",
+      "node_modules": "npm/ddp/node_modules",
+      "sourceMap": "packages/ddp.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/livedata.js"
+      "path": "packages/ddp.js"
     },
     {
       "sourceMap": "packages/follower-livedata.js.map",
@@ -175,15 +190,10 @@
       "path": "packages/binary-heap.js"
     },
     {
-      "sourceMap": "packages/insecure.js.map",
+      "node_modules": "npm/mongo/node_modules",
+      "sourceMap": "packages/mongo.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/insecure.js"
-    },
-    {
-      "node_modules": "npm/mongo-livedata/node_modules",
-      "sourceMap": "packages/mongo-livedata.js.map",
-      "sourceMapRoot": "packages",
-      "path": "packages/mongo-livedata.js"
+      "path": "packages/mongo.js"
     },
     {
       "sourceMap": "packages/autoupdate.js.map",
@@ -191,19 +201,14 @@
       "path": "packages/autoupdate.js"
     },
     {
-      "sourceMap": "packages/standard-app-packages.js.map",
+      "sourceMap": "packages/meteor-platform.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/standard-app-packages.js"
+      "path": "packages/meteor-platform.js"
     },
     {
-      "sourceMap": "packages/less.js.map",
+      "sourceMap": "packages/deps.js.map",
       "sourceMapRoot": "packages",
-      "path": "packages/less.js"
-    },
-    {
-      "sourceMap": "packages/mrt:bootstrap-3.js.map",
-      "sourceMapRoot": "packages",
-      "path": "packages/mrt:bootstrap-3.js"
+      "path": "packages/deps.js"
     },
     {
       "sourceMap": "packages/session.js.map",
@@ -211,10 +216,29 @@
       "path": "packages/session.js"
     },
     {
+      "sourceMap": "packages/livedata.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/livedata.js"
+    },
+    {
+      "sourceMap": "packages/ui.js.map",
+      "sourceMapRoot": "packages",
+      "path": "packages/ui.js"
+    },
+    {
       "path": "packages/global-imports.js"
     },
     {
+      "path": "app/collections/books.js"
+    },
+    {
       "path": "app/collections/collections.js"
+    },
+    {
+      "path": "app/server/fixtures.js"
+    },
+    {
+      "path": "app/server/publication.js"
     }
   ]
 }

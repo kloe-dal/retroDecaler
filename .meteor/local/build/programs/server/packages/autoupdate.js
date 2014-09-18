@@ -5,9 +5,10 @@ var Meteor = Package.meteor.Meteor;
 var WebApp = Package.webapp.WebApp;
 var main = Package.webapp.main;
 var WebAppInternals = Package.webapp.WebAppInternals;
-var DDP = Package.livedata.DDP;
-var DDPServer = Package.livedata.DDPServer;
-var MongoInternals = Package['mongo-livedata'].MongoInternals;
+var DDP = Package.ddp.DDP;
+var DDPServer = Package.ddp.DDPServer;
+var MongoInternals = Package.mongo.MongoInternals;
+var Mongo = Package.mongo.Mongo;
 var _ = Package.underscore._;
 
 /* Package-scope variables */
@@ -62,7 +63,7 @@ var Future = Npm.require("fibers/future");                                      
 Autoupdate = {};                                                                 // 39
                                                                                  // 40
 // The collection of acceptable client versions.                                 // 41
-ClientVersions = new Meteor.Collection("meteor_autoupdate_clientVersions",       // 42
+ClientVersions = new Mongo.Collection("meteor_autoupdate_clientVersions",        // 42
   { connection: null });                                                         // 43
                                                                                  // 44
 // The client hash includes __meteor_runtime_config__, so wait until             // 45

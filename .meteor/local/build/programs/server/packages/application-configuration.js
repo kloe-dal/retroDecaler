@@ -4,8 +4,8 @@
 var Meteor = Package.meteor.Meteor;
 var Log = Package.logging.Log;
 var _ = Package.underscore._;
-var DDP = Package.livedata.DDP;
-var DDPServer = Package.livedata.DDPServer;
+var DDP = Package.ddp.DDP;
+var DDPServer = Package.ddp.DDPServer;
 var EJSON = Package.ejson.EJSON;
 var Follower = Package['follower-livedata'].Follower;
 
@@ -48,13 +48,13 @@ var collectionFuture = new Future();                                            
                                                                                       // 26
 Meteor.startup(function () {                                                          // 27
   if (ultra) {                                                                        // 28
-    Apps = new Meteor.Collection("apps", {                                            // 29
+    Apps = new Mongo.Collection("apps", {                                             // 29
       connection: ultra                                                               // 30
     });                                                                               // 31
-    Jobs = new Meteor.Collection("jobs", {                                            // 32
+    Jobs = new Mongo.Collection("jobs", {                                             // 32
       connection: ultra                                                               // 33
     });                                                                               // 34
-    Services = new Meteor.Collection('services', {                                    // 35
+    Services = new Mongo.Collection('services', {                                     // 35
       connection: ultra                                                               // 36
     });                                                                               // 37
     // allow us to block on the collections being ready                               // 38

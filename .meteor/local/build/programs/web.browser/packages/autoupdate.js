@@ -19,9 +19,11 @@
 
 /* Imports */
 var Meteor = Package.meteor.Meteor;
-var Deps = Package.deps.Deps;
+var Tracker = Package.tracker.Tracker;
+var Deps = Package.tracker.Deps;
 var Retry = Package.retry.Retry;
-var DDP = Package.livedata.DDP;
+var DDP = Package.ddp.DDP;
+var Mongo = Package.mongo.Mongo;
 var _ = Package.underscore._;
 
 /* Package-scope variables */
@@ -66,7 +68,7 @@ var autoupdateVersionRefreshable =                                              
   __meteor_runtime_config__.autoupdateVersionRefreshable || "unknown";                     // 29
                                                                                            // 30
 // The collection of acceptable client versions.                                           // 31
-ClientVersions = new Meteor.Collection("meteor_autoupdate_clientVersions");                // 32
+ClientVersions = new Mongo.Collection("meteor_autoupdate_clientVersions");                 // 32
                                                                                            // 33
 Autoupdate = {};                                                                           // 34
                                                                                            // 35
@@ -196,4 +198,4 @@ Package.autoupdate = {
 
 })();
 
-//# sourceMappingURL=6410bb02359917467559e124b972cb1833dbb60a.map
+//# sourceMappingURL=9845ddb72d91d7da44fe26be650af6ef3d84ac82.map

@@ -8,9 +8,9 @@ var RoutePolicy = Package.routepolicy.RoutePolicy;
 var SpacebarsCompiler = Package['spacebars-compiler'].SpacebarsCompiler;
 var Spacebars = Package.spacebars.Spacebars;
 var HTML = Package.htmljs.HTML;
-var UI = Package.ui.UI;
-var Handlebars = Package.ui.Handlebars;
 var Blaze = Package.blaze.Blaze;
+var UI = Package.blaze.UI;
+var Handlebars = Package.blaze.Handlebars;
 
 /* Package-scope variables */
 var WebApp, main, WebAppInternals;
