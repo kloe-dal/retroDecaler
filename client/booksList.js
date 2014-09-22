@@ -1,5 +1,8 @@
 Template.booksList.helpers({
   books: function () {
-    return Books.find();
+    return Books.find({author: 'Paul Dargens'});
   }
 });
+
+
+Meteor.subscribe('books', 'Paul Dargens');

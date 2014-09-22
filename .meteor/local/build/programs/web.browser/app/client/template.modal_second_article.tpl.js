@@ -21,7 +21,37 @@ Template["modal_second_article"] = new Template("Template.modal_second_article",
     "class": "panel-collapse collapse"
   }, "\n              ", HTML.DIV({
     "class": "panel-body"
-  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.Raw('<div class="panel-group" id="accordion">\n          <div class="panel panel-default">\n            <div class="panel-heading">\n              <h4 class="panel-title">\n                <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo">\n                    Happy end\n                </a>\n              </h4>\n            </div>\n             <div id="collapseTwo" class="panel-collapse collapse">\n              <div class="panel-body">\n                  <img src="/images/kidnapping.jpg">\n                  <img src="/images/leCrime.jpg">\n              </div>\n            </div>\n          </div>\n          </div>'), "\n          ", HTML.Raw('<div class="panel-group" id="accordion">\n          <div class="panel panel-default">\n            <div class="panel-heading">\n              <h4 class="panel-title">\n                <a data-toggle="collapse" data-parent="#accordion" href="#collapseThree">\n                    Affaires de moeurs\n                </a>\n              </h4>\n            </div>\n            <div id="collapseThree" class="panel-collapse collapse">\n              <div class="panel-body">\n                  <img src="/images/leCrime.jpg">\n              </div>\n            </div>\n          </div>\n          </div>'), "\n          ", HTML.Raw('<div class="panel-group" id="accordion">\n          <div class="panel panel-default">\n            <div class="panel-heading">\n              <h4 class="panel-title">\n                <a data-toggle="collapse" data-parent="#accordion" href="#collapseFour">\n                    Fast book\n                </a>\n              </h4>\n            </div>\n            <div id="collapseFour" class="panel-collapse collapse">\n              <div class="panel-body">\n                  <img src="/images/leCrime.jpg">\n                  <img src="/images/kidnapping.jpg">\n              </div>\n            </div>\n          </div>\n          </div>'), "\n      "), "\n      ", HTML.Raw('<article class="col-xs-4">\n        <img src="/images/classement.png">\n      </article>'), "\n     "), "\n    "), "\n  ");
+  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
+    "class": "panel-group",
+    id: "accordion"
+  }, "\n          ", HTML.DIV({
+    "class": "panel panel-default"
+  }, "\n            ", HTML.Raw('<div class="panel-heading">\n              <h4 class="panel-title">\n                <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo">\n                    Happy end\n                </a>\n              </h4>\n            </div>'), "\n             ", HTML.DIV({
+    id: "collapseTwo",
+    "class": "panel-collapse collapse"
+  }, "\n              ", HTML.DIV({
+    "class": "panel-body"
+  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
+    "class": "panel-group",
+    id: "accordion"
+  }, "\n          ", HTML.DIV({
+    "class": "panel panel-default"
+  }, "\n            ", HTML.Raw('<div class="panel-heading">\n              <h4 class="panel-title">\n                <a data-toggle="collapse" data-parent="#accordion" href="#collapseThree">\n                    Affaires de moeurs\n                </a>\n              </h4>\n            </div>'), "\n            ", HTML.DIV({
+    id: "collapseThree",
+    "class": "panel-collapse collapse"
+  }, "\n              ", HTML.DIV({
+    "class": "panel-body"
+  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
+    "class": "panel-group",
+    id: "accordion"
+  }, "\n          ", HTML.DIV({
+    "class": "panel panel-default"
+  }, "\n            ", HTML.Raw('<div class="panel-heading">\n              <h4 class="panel-title">\n                <a data-toggle="collapse" data-parent="#accordion" href="#collapseFour">\n                    Fast book\n                </a>\n              </h4>\n            </div>'), "\n            ", HTML.DIV({
+    id: "collapseFour",
+    "class": "panel-collapse collapse"
+  }, "\n              ", HTML.DIV({
+    "class": "panel-body"
+  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList")), "\n              "), "\n            "), "\n          "), "\n          "), "\n      "), "\n      ", HTML.Raw('<article class="col-xs-4">\n        <img src="/images/classement.png">\n      </article>'), "\n     "), "\n    "), "\n  ");
 }));
 
 })();
