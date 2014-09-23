@@ -422,9 +422,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.booksList.js?5dda3531b6a9ea0b11f3e93294d1b716a6e8577c",
-      "size": 405,
-      "hash": "5dda3531b6a9ea0b11f3e93294d1b716a6e8577c"
+      "url": "/client/template.booksList.js?50973fc617eacdebe2efda87bd6cf1af33af6de7",
+      "size": 1575,
+      "hash": "50973fc617eacdebe2efda87bd6cf1af33af6de7"
     },
     {
       "path": "app/client/template.modal_first_article.tpl.js",
@@ -440,9 +440,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.modal_second_article.tpl.js?a55506a42949058b01d4bf4a796d37355ed74298",
-      "size": 3994,
-      "hash": "a55506a42949058b01d4bf4a796d37355ed74298"
+      "url": "/client/template.modal_second_article.tpl.js?7527c30de1d3d2327626678bd31b6e5c83d21bb3",
+      "size": 3997,
+      "hash": "7527c30de1d3d2327626678bd31b6e5c83d21bb3"
     },
     {
       "path": "app/client/template.modal_third_article.tpl.js",
@@ -458,9 +458,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.post_item.js?848ff8decfc2de166398dc93303355a20ea055ae",
-      "size": 484,
-      "hash": "848ff8decfc2de166398dc93303355a20ea055ae"
+      "url": "/client/template.post_item.js?ad95b1aca18d98f343bc892a13bb5530889827f0",
+      "size": 380,
+      "hash": "ad95b1aca18d98f343bc892a13bb5530889827f0"
     },
     {
       "path": "app/client/template.subscribe.tpl.js",
@@ -485,9 +485,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/booksList.js?bd2108c01c994dfe1d46df9b56daa43fd3b39858",
-      "size": 173,
-      "hash": "bd2108c01c994dfe1d46df9b56daa43fd3b39858"
+      "url": "/client/booksList.js?47ad4b993adf4c3b8d08be224862d0c587bddbc5",
+      "size": 500,
+      "hash": "47ad4b993adf4c3b8d08be224862d0c587bddbc5"
     },
     {
       "path": "app/collections/books.js",
@@ -517,15 +517,15 @@
       "hash": "670674d39ea2f900311a9e6790a4617c9554ee66"
     },
     {
-      "path": "6f54c72ebb95f4b27fad820302168863656e2df1.css",
+      "path": "9c890d4a168b9f12393135b0764d993436c1758d.css",
       "where": "client",
       "type": "css",
       "cacheable": true,
-      "url": "/6f54c72ebb95f4b27fad820302168863656e2df1.css",
-      "sourceMap": "6f54c72ebb95f4b27fad820302168863656e2df1.css.map",
-      "sourceMapUrl": "/6f54c72ebb95f4b27fad820302168863656e2df1.map",
-      "size": 135302,
-      "hash": "f13cbca88815759dd21f13702fd76e09a90a3b23"
+      "url": "/9c890d4a168b9f12393135b0764d993436c1758d.css",
+      "sourceMap": "9c890d4a168b9f12393135b0764d993436c1758d.css.map",
+      "sourceMapUrl": "/9c890d4a168b9f12393135b0764d993436c1758d.map",
+      "size": 135399,
+      "hash": "4e1c6117beadc2170163ac8e1021a7d138239e30"
     },
     {
       "path": "packages/mizzao:bootstrap-3/bootstrap-3/fonts/glyphicons-halflings-regular.eot",
