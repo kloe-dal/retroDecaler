@@ -21,7 +21,13 @@ Template["modal_second_article"] = new Template("Template.modal_second_article",
     "class": "panel-collapse collapse"
   }, "\n              ", HTML.DIV({
     "class": "panel-body"
-  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
+  }, "\n                ", Blaze._TemplateWith(function() {
+    return {
+      category: Spacebars.call("Faits divers")
+    };
+  }, function() {
+    return Spacebars.include(view.lookupTemplate("booksList"));
+  }), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
     "class": "panel-group",
     id: "accordion"
   }, "\n          ", HTML.DIV({
@@ -31,7 +37,13 @@ Template["modal_second_article"] = new Template("Template.modal_second_article",
     "class": "panel-collapse collapse"
   }, "\n              ", HTML.DIV({
     "class": "panel-body"
-  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList1")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
+  }, "\n                ", Blaze._TemplateWith(function() {
+    return {
+      category: Spacebars.call("Happy end")
+    };
+  }, function() {
+    return Spacebars.include(view.lookupTemplate("booksList"));
+  }), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
     "class": "panel-group",
     id: "accordion"
   }, "\n          ", HTML.DIV({
@@ -41,7 +53,13 @@ Template["modal_second_article"] = new Template("Template.modal_second_article",
     "class": "panel-collapse collapse"
   }, "\n              ", HTML.DIV({
     "class": "panel-body"
-  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList2")), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
+  }, "\n                ", Blaze._TemplateWith(function() {
+    return {
+      category: Spacebars.call("Affaires de moeurs")
+    };
+  }, function() {
+    return Spacebars.include(view.lookupTemplate("booksList"));
+  }), "\n              "), "\n            "), "\n          "), "\n          "), "\n          ", HTML.DIV({
     "class": "panel-group",
     id: "accordion"
   }, "\n          ", HTML.DIV({
@@ -51,7 +69,13 @@ Template["modal_second_article"] = new Template("Template.modal_second_article",
     "class": "panel-collapse collapse"
   }, "\n              ", HTML.DIV({
     "class": "panel-body"
-  }, "\n                ", Spacebars.include(view.lookupTemplate("booksList3")), "\n              "), "\n            "), "\n          "), "\n          "), "\n      "), "\n      ", HTML.Raw('<article class="col-xs-4">\n        <img src="/images/classement.png">\n      </article>'), "\n     "), "\n    "), "\n  ");
+  }, "\n                ", Blaze._TemplateWith(function() {
+    return {
+      category: Spacebars.call("Fast books")
+    };
+  }, function() {
+    return Spacebars.include(view.lookupTemplate("booksList"));
+  }), "\n              "), "\n            "), "\n          "), "\n          "), "\n      "), "\n      ", HTML.Raw('<article class="col-xs-4">\n        <img src="/images/classement.png">\n      </article>'), "\n     "), "\n    "), "\n  ");
 }));
 
 })();
