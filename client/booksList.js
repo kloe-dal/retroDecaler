@@ -1,7 +1,7 @@
 Meteor.subscribe('books');
 
 Template.booksList.helpers({
-  books: function (category) {
+  books: function () {
     return Books.find({category: this.category});
   }
 });

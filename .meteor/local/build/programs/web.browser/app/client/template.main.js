@@ -7,7 +7,7 @@ Template.body.addContent((function() {
     "class": "solutions"
   }, "\n    ", HTML.ARTICLE({
     "class": "col-xs-3 panel panel-default"
-  }, "\n      ", HTML.Raw("<h2>Découvre</h2>"), "\n      ", HTML.Raw('<a href="#" class="thumbnail" data-toggle="modal" data-target=".first-article">\n        <img src="/images/decouvre.png" alt="Yop">\n      </a>'), "\n      ", HTML.Raw("<p>2 livres, rétro et décalés, chaque jour!</p>"), "\n      ", Spacebars.include(view.lookupTemplate("modal_first_article")), "\n    "), "\n    ", HTML.ARTICLE({
+  }, "\n      ", HTML.Raw("<h2>Découvre</h2>"), "\n      ", HTML.Raw('<a href="#" class="thumbnail" data-toggle="modal" data-target=".first-article">\n        <img src="/images/decouvre.png" alt="Yop">\n      </a>'), "\n      ", HTML.Raw("<p>2 livres, rétros et décalés, chaque jour!</p>"), "\n      ", Spacebars.include(view.lookupTemplate("modal_first_article")), "\n    "), "\n    ", HTML.ARTICLE({
     "class": "col-xs-3 col-xs-offset-1 panel panel-default"
   }, "\n      ", HTML.Raw("<h2>Déniche</h2>"), "\n      ", HTML.Raw('<a href="#" class="thumbnail" data-toggle="modal" data-target=".second-article">\n        <img src="/images/deniche.png" alt="Yop">\n      </a>'), "\n      ", HTML.Raw("<p>la perle rare, grâce à un classement peu ordinaire...</p>"), "\n      ", Spacebars.include(view.lookupTemplate("modal_second_article")), "\n    "), "\n    ", HTML.ARTICLE({
     "class": "col-xs-3 col-xs-offset-1 panel panel-default"

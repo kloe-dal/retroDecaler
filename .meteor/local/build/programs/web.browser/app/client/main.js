@@ -10,6 +10,5 @@
   
 });
 
-Meteor.subscribe('books');
 
 })();

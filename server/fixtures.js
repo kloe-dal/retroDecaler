@@ -1,3 +1,4 @@
+Books.remove({})
 if (Books.find().count() === 0) {
   Books.insert({
     title: 'Kidnapping',
@@ -34,7 +35,3 @@ if (Books.find().count() === 0) {
     category: 'Fast books'
   });
 }
-
-Meteor.publish('books', function () {
-  return Books.find({});
-});

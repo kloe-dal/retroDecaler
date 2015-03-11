@@ -440,9 +440,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.modal_second_article.tpl.js?b95e791411b17ba840ee6da8766dd299d7dae961",
-      "size": 4535,
-      "hash": "b95e791411b17ba840ee6da8766dd299d7dae961"
+      "url": "/client/template.modal_second_article.tpl.js?349180f232020e0d839d846256d30b1eee8396c6",
+      "size": 4656,
+      "hash": "349180f232020e0d839d846256d30b1eee8396c6"
     },
     {
       "path": "app/client/template.modal_third_article.tpl.js",
@@ -476,18 +476,18 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/template.main.js?f441296cb192683d10eff3bd6a4f945ec6a2c6ef",
-      "size": 1872,
-      "hash": "f441296cb192683d10eff3bd6a4f945ec6a2c6ef"
+      "url": "/client/template.main.js?2b1c5160477dcaa4b322267bb179ba1518875793",
+      "size": 1873,
+      "hash": "2b1c5160477dcaa4b322267bb179ba1518875793"
     },
     {
       "path": "app/client/booksList.js",
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/booksList.js?4a9f4b9efebb87625059ad9961b474a115e16db6",
-      "size": 166,
-      "hash": "4a9f4b9efebb87625059ad9961b474a115e16db6"
+      "url": "/client/booksList.js?0fe737646cc4bfa34a4f679954fb66e6bc2afdf7",
+      "size": 158,
+      "hash": "0fe737646cc4bfa34a4f679954fb66e6bc2afdf7"
     },
     {
       "path": "app/collections/books.js",
@@ -512,9 +512,9 @@
       "where": "client",
       "type": "js",
       "cacheable": true,
-      "url": "/client/main.js?670674d39ea2f900311a9e6790a4617c9554ee66",
-      "size": 280,
-      "hash": "670674d39ea2f900311a9e6790a4617c9554ee66"
+      "url": "/client/main.js?d3053a58443abc695ceb17b65611dbb2ee90133d",
+      "size": 253,
+      "hash": "d3053a58443abc695ceb17b65611dbb2ee90133d"
     },
     {
       "path": "9c890d4a168b9f12393135b0764d993436c1758d.css",
